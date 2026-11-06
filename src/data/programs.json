@@ -1,0 +1,1659 @@
+[
+  {
+    "code": "PRAT",
+    "mdep": "PRAT",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1A",
+    "name": "ANNUAL TRAINING",
+    "pbg": 18750000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 5
+  },
+  {
+    "code": "PRAT_SUB",
+    "mdep": "PRAT",
+    "dollar": "_SUB",
+    "fund": "BASE",
+    "sag": "1A",
+    "name": "ANNUAL TRAINING - Subsistence (_SUB)",
+    "pbg": 0,
+    "systems": [
+      "GFEBS"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 6
+  },
+  {
+    "code": "PRID_IDT-TRP",
+    "mdep": "PRID",
+    "dollar": "_IDT-TRP",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "IDT - Travel Reimbursement Program (_IDT-TRP)",
+    "pbg": 1600000,
+    "systems": [
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 7
+  },
+  {
+    "code": "PRID_SUB",
+    "mdep": "PRID",
+    "dollar": "_SUB",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "IDT - Subsistence (_SUB)",
+    "pbg": 150000,
+    "systems": [
+      "GFEBS"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 8
+  },
+  {
+    "code": "PRID_BA",
+    "mdep": "PRID",
+    "dollar": "_BA",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "IDT - Battle Assembly (_BA)",
+    "pbg": 37262500,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 9
+  },
+  {
+    "code": "VMBH_FH",
+    "mdep": "VMBH",
+    "dollar": "_FH",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Funeral Honors (_FH)",
+    "pbg": 197500,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 10
+  },
+  {
+    "code": "PRID_AABA",
+    "mdep": "PRID",
+    "dollar": "_AABA",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Additional Airborne Battle Assembly (_AABA)",
+    "pbg": 0,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 11
+  },
+  {
+    "code": "TRIT_EBDL",
+    "mdep": "TRIT",
+    "dollar": "_EBDL",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Electronic Based Distance Learning (_EBDL)",
+    "pbg": 115192,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 12
+  },
+  {
+    "code": "TRCD_AFTP",
+    "mdep": "TRCD",
+    "dollar": "_AFTP",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Additional Flight Training Period (_AFTP)",
+    "pbg": 0,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 13
+  },
+  {
+    "code": "PRID_MDR",
+    "mdep": "PRID",
+    "dollar": "_MDR",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Medical/Dental Readiness (_MDR)",
+    "pbg": 134055,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 14
+  },
+  {
+    "code": "PRID_RMA",
+    "mdep": "PRID",
+    "dollar": "_RMA",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Readiness Management Assembly (_RMA)",
+    "pbg": 267590,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 15
+  },
+  {
+    "code": "PRID_ATA",
+    "mdep": "PRID",
+    "dollar": "_ATA",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "ADA - Additional Training Assembly (_ATA)",
+    "pbg": 11966,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 16
+  },
+  {
+    "code": "PRID_MAT",
+    "mdep": "PRID",
+    "dollar": "_MAT",
+    "fund": "BASE",
+    "sag": "1B",
+    "name": "MATERNITY",
+    "pbg": 0,
+    "systems": [
+      "IPPS-A"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6
+        ],
+        "plan": 7,
+        "exe": 8,
+        "var": 9,
+        "cp": 10,
+        "ce": 11,
+        "cv": 12
+      },
+      {
+        "start": 16,
+        "cat": [
+          16
+        ],
+        "plan": 17,
+        "exe": 18,
+        "var": 19,
+        "cp": 20,
+        "ce": 21,
+        "cv": 22
+      },
+      {
+        "start": 26,
+        "cat": [
+          26
+        ],
+        "plan": 27,
+        "exe": 28,
+        "var": 29,
+        "cp": 30,
+        "ce": 31,
+        "cv": 32
+      }
+    ],
+    "pbgrow": 17
+  },
+  {
+    "code": "TRIT",
+    "mdep": "TRIT",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1F",
+    "name": "SCHOOLS (MOSQ/ASI & PME)",
+    "pbg": 8362000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 18
+  },
+  {
+    "code": "QSPV",
+    "mdep": "QSPV",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "SUICIDE PREVENTION",
+    "pbg": 200000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 19
+  },
+  {
+    "code": "QSFP",
+    "mdep": "QSFP",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "BUILDING STRONG & READY TEAMS",
+    "pbg": 20000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 20
+  },
+  {
+    "code": "QACS",
+    "mdep": "QACS",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "FAMILY PROGRAMS",
+    "pbg": 110100,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 21
+  },
+  {
+    "code": "AR1R",
+    "mdep": "AR1R",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "NET FIELDING/DISPLACED EQUIP TRNG",
+    "pbg": 50000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 22
+  },
+  {
+    "code": "GPCI",
+    "mdep": "GPCI",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "CI/HUMINT",
+    "pbg": 1465000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 23
+  },
+  {
+    "code": "GPIR",
+    "mdep": "GPIR",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "FOUNDRY",
+    "pbg": 4750000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 24
+  },
+  {
+    "code": "GPIS",
+    "mdep": "GPIS",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "ISO",
+    "pbg": 1004000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 25
+  },
+  {
+    "code": "OISR",
+    "mdep": "OISR",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "AISR/PED",
+    "pbg": 599000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 26
+  },
+  {
+    "code": "PRSA",
+    "mdep": "PRSA",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "OPERATIONAL SUPPORT",
+    "pbg": 2665000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 27
+  },
+  {
+    "code": "TDLP",
+    "mdep": "TDLP",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "LANGUAGE",
+    "pbg": 1450000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 28
+  },
+  {
+    "code": "TRCD",
+    "mdep": "TRCD",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "OPERATIONAL/SUSTAINMENT TRNG",
+    "pbg": 1900000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 29
+  },
+  {
+    "code": "VTER",
+    "mdep": "VTER",
+    "dollar": "",
+    "fund": "BASE",
+    "sag": "1G",
+    "name": "ANTI-TERRORISM TRNG",
+    "pbg": 62000,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 30
+  },
+  {
+    "code": "TRCD_BBIR",
+    "mdep": "TRCD",
+    "dollar": "_BBIR",
+    "fund": "OOC",
+    "sag": "1G",
+    "name": "OOC - BOIR",
+    "pbg": 142800,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 31
+  },
+  {
+    "code": "TRCD_BGMO",
+    "mdep": "TRCD",
+    "dollar": "_BGMO",
+    "fund": "OOC",
+    "sag": "1G",
+    "name": "OOC - BGMO",
+    "pbg": 70600,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 32
+  },
+  {
+    "code": "TRCD_BHOA",
+    "mdep": "TRCD",
+    "dollar": "_BHOA",
+    "fund": "OOC",
+    "sag": "1G",
+    "name": "OOC - BHOA (HORN OF AFRICA)",
+    "pbg": 23500,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 33
+  },
+  {
+    "code": "TRCD_BOSS",
+    "mdep": "TRCD",
+    "dollar": "_BOSS",
+    "fund": "OOC",
+    "sag": "1G",
+    "name": "OOC - BOSS (SPRATAN SHIELD)",
+    "pbg": 13440,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 34
+  },
+  {
+    "code": "TRCD_BEDI",
+    "mdep": "TRCD",
+    "dollar": "_BEDI",
+    "fund": "EDI",
+    "sag": "1G",
+    "name": "EDI - BEDI (EUR DET INIT)",
+    "pbg": 11200,
+    "systems": [
+      "IPPS-A",
+      "DTS Travel"
+    ],
+    "rows": [
+      {
+        "start": 6,
+        "cat": [
+          6,
+          7
+        ],
+        "plan": 8,
+        "exe": 9,
+        "var": 10,
+        "cp": 11,
+        "ce": 12,
+        "cv": 13
+      },
+      {
+        "start": 17,
+        "cat": [
+          17,
+          18
+        ],
+        "plan": 19,
+        "exe": 20,
+        "var": 21,
+        "cp": 22,
+        "ce": 23,
+        "cv": 24
+      },
+      {
+        "start": 28,
+        "cat": [
+          28,
+          29
+        ],
+        "plan": 30,
+        "exe": 31,
+        "var": 32,
+        "cp": 33,
+        "ce": 34,
+        "cv": 35
+      }
+    ],
+    "pbgrow": 35
+  }
+]
