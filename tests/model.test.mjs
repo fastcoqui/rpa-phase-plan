@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   LEGACY_STORAGE_KEY, STORAGE_KEY, appropriation, blankState, clearActiveEntries,
-  commitAmount, fiscalThroughIndex, formatMoney,   legacyExclusion, loadState,
+  commitAmount, fiscalThroughIndex, formatMoney, includedPrograms, legacyExclusion, loadState,
   migrateState, monthFigures, narrativeFlags, parseAmount, periodSum, programView, ratio,
-  straightLineMonthly, toCsv,
+  setDashboardIncluded, straightLineCumulative, straightLineMonthly, toCsv,
 } from '../src/model.js';
 
 const programs = [
@@ -301,4 +301,124 @@ test('saved v2 state loads unchanged', () => {
   assert.equal(loaded.state.legacy.raw.phase.AT.UND['IPPS-A'][0], 9);
   assert.equal(programView(programs[0], loaded.state).exe[0], 10);
   assert.equal(programView(programs[0], loaded.state).plan[0], 100.5);
+  assert.equal(Object.hasOwn(loaded.state, 'dashboardIncluded'), false);
+  assert.deepEqual(includedPrograms(programs, loaded.state).map(program => program.code), ['AT', 'BA', 'SUB']);
+  assert.equal(appropriation(includedPrograms(programs, loaded.state), loaded.state, 0).pbg, 2000);
+});
+
+test('dashboard inclusion filters totals and keeps every entered amount', () => {
+  const state = blankState(programs);
+  state.phase.AT = months(100, 50);
+  const phaseRef = state.phase.AT;
+  state.phase.BA = months(10, 10);
+  state.phase.SUB = months(4);
+  state.obl.AT = months(40, 10);
+  state.obl.BA = months(0, 5);
+  state.notes.AT[0] = 'kept note';
+  state.legacy = {
+    role: 'migration-backup',
+    excludedFromActiveTotals: true,
+    undPhase: { AT: { 'IPPS-A': months(9) } },
+    undPbg: { AT: 50 },
+  };
+  const legacy = state.legacy;
+  assert.equal(Object.hasOwn(state, 'dashboardIncluded'), false);
+  assert.equal(includedPrograms(programs, state).length, 3);
+
+  const savedWithoutField = JSON.parse(JSON.stringify(state));
+  const legacyLoad = loadState(key => key === STORAGE_KEY ? JSON.stringify(savedWithoutField) : null, programs);
+  assert.equal(legacyLoad.source, 'v2');
+  assert.equal(Object.hasOwn(legacyLoad.state, 'dashboardIncluded'), false);
+  assert.deepEqual(legacyLoad.state.phase.AT, months(100, 50));
+  assert.deepEqual(legacyLoad.state.phase.BA, months(10, 10));
+  assert.deepEqual(legacyLoad.state.obl.AT, months(40, 10));
+  assert.deepEqual(legacyLoad.state.obl.BA, months(0, 5));
+  assert.equal(legacyLoad.state.notes.AT[0], 'kept note');
+  assert.equal(legacyLoad.state.legacy.undPbg.AT, 50);
+  assert.equal(legacyLoad.state.legacy.undPhase.AT['IPPS-A'][0], 9);
+  assert.equal(appropriation(includedPrograms(programs, legacyLoad.state), legacyLoad.state, 1).pbg, 2000);
+  assert.equal(appropriation(includedPrograms(programs, legacyLoad.state), legacyLoad.state, 1).cumPlan, 174);
+
+  setDashboardIncluded(state, programs, ['AT', 'NOPE', 'AT']);
+  assert.equal(state.phase.AT, phaseRef);
+  assert.deepEqual(state.phase.AT, months(100, 50));
+  assert.deepEqual(state.dashboardIncluded, ['AT']);
+  assert.equal(state.notes.AT[0], 'kept note');
+  assert.equal(state.legacy, legacy);
+  const onlyAT = appropriation(includedPrograms(programs, state), state, 1);
+  assert.equal(onlyAT.programs, 1);
+  assert.equal(onlyAT.pbg, 1200);
+  assert.equal(onlyAT.plan[0], 100);
+  assert.equal(onlyAT.plan[1], 50);
+  assert.equal(onlyAT.cumPlan, 150);
+  assert.equal(onlyAT.cumObl, 50);
+  assert.equal(onlyAT.actualMinusPlan, -100);
+  assert.equal(onlyAT.execOfPlan.text, '33.3%');
+  assert.equal(onlyAT.execOfPbg.text, '4.2%');
+  assert.equal(onlyAT.fullYearPhased, 150);
+  assert.equal(onlyAT.unphased, 1050);
+  assert.deepEqual(straightLineCumulative(onlyAT.pbg), straightLineCumulative(1200));
+  assert.equal(straightLineCumulative(onlyAT.pbg)[11], 1200);
+  assert.notEqual(onlyAT.pbg, appropriation(programs, state, 1).pbg);
+  assert.equal(programView(programs[1], state).plan[0], 10);
+  assert.equal(programView(programs[1], state).exe[1], 5);
+  assert.equal(programView(programs[2], state).plan[0], 4);
+
+  const roundTrip = loadState(key => key === STORAGE_KEY ? JSON.stringify(state) : null, programs);
+  assert.deepEqual(roundTrip.state.dashboardIncluded, ['AT']);
+  assert.deepEqual(roundTrip.state.phase.BA, months(10, 10));
+  assert.deepEqual(roundTrip.state.obl.BA, months(0, 5));
+  assert.equal(roundTrip.state.phase.SUB[0], 4);
+  assert.equal(roundTrip.state.notes.AT[0], 'kept note');
+  assert.equal(roundTrip.state.legacy.undPhase.AT['IPPS-A'][0], 9);
+
+  setDashboardIncluded(state, programs, []);
+  const none = appropriation(includedPrograms(programs, state), state, 1);
+  assert.deepEqual(state.dashboardIncluded, []);
+  assert.equal(none.programs, 0);
+  assert.equal(none.pbg, 0);
+  assert.equal(none.fullYearPhased, 0);
+  assert.equal(none.fullYearObl, 0);
+  assert.equal(none.unphased, 0);
+  assert.equal(none.cumPlan, 0);
+  assert.equal(none.cumObl, 0);
+  assert.equal(none.actualMinusPlan, 0);
+  assert.equal(none.execOfPlan.text, 'N/A');
+  assert.equal(none.execOfPlan.value, null);
+  assert.equal(none.execOfPbg.text, 'N/A');
+  assert.equal(none.fullYearExecOfPlan.text, 'N/A');
+  assert.equal(none.fullYearExecOfPbg.text, 'N/A');
+  assert.equal(none.phasedOfPbg.text, 'N/A');
+  assert.ok(none.plan.every(value => value === 0 && Number.isFinite(value)));
+  assert.ok(none.cp.every(value => value === 0 && Number.isFinite(value)));
+  assert.ok(straightLineCumulative(none.pbg).every(value => value === 0 && Number.isFinite(value)));
+  assert.equal(Number.isFinite(none.actualMinusPlan), true);
+  assert.deepEqual(state.phase.AT, months(100, 50));
+  assert.deepEqual(state.obl.BA, months(0, 5));
+
+  const cleared = clearActiveEntries(state, programs);
+  assert.deepEqual(cleared.dashboardIncluded, []);
+  assert.deepEqual(cleared.phase.AT, months());
+  assert.equal(cleared.legacy.undPbg.AT, 50);
+  assert.equal(state.phase.AT[0], 100);
+
+  setDashboardIncluded(state, programs, programs.map(program => program.code));
+  assert.equal(Object.hasOwn(state, 'dashboardIncluded'), false);
+  assert.equal(includedPrograms(programs, state).length, 3);
+  assert.deepEqual(state.phase.AT, months(100, 50));
+
+  const malformed = migrateState({
+    version: 2,
+    phase: { AT: months(7), BA: months(3), SUB: months() },
+    obl: { AT: months(2), BA: months(), SUB: months() },
+    notes: { BA: { 1: 'still here' } },
+    dashboardIncluded: { AT: false },
+  }, programs);
+  assert.equal(Object.hasOwn(malformed, 'dashboardIncluded'), false);
+  assert.equal(includedPrograms(programs, malformed).length, 3);
+  assert.equal(malformed.phase.AT[0], 7);
+  assert.equal(malformed.phase.BA[0], 3);
+  assert.equal(malformed.obl.AT[0], 2);
+  assert.equal(malformed.notes.BA[1], 'still here');
+  assert.equal(appropriation(includedPrograms(programs, malformed), malformed, 0).cumPlan, 10);
 });
