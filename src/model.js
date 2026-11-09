@@ -75,6 +75,19 @@ export function fiscalThroughIndex(date) {
   return clampMonth(m);
 }
 
+export function monthFigures(plan, obligations, index) {
+  const i = clampMonth(index);
+  const planned = monthArray(plan)[i];
+  const actual = monthArray(obligations)[i];
+  return {
+    index: i,
+    plan: planned,
+    obligations: actual,
+    actualMinusPlan: actual - planned,
+    execOfPlan: ratio(actual, planned),
+  };
+}
+
 export function periodSum(values, period) {
   const idx = QTR[period] || QTR.Annual;
   const months = monthArray(values);

@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   LEGACY_STORAGE_KEY, STORAGE_KEY, appropriation, blankState, clearActiveEntries,
-  commitAmount, fiscalThroughIndex, formatMoney, legacyExclusion, loadState,
-  migrateState, narrativeFlags, parseAmount, periodSum, programView, ratio,
+  commitAmount, fiscalThroughIndex, formatMoney,   legacyExclusion, loadState,
+  migrateState, monthFigures, narrativeFlags, parseAmount, periodSum, programView, ratio,
   straightLineMonthly, toCsv,
 } from '../src/model.js';
 
@@ -236,4 +236,69 @@ test('quarter rollups, narratives, csv, and reset keep the backup', () => {
   assert.notDeepEqual(blank.phase.AT, straightLineMonthly(1200));
   blank.phase.AT[0] = 5;
   assert.equal(blank.phase.BA[0], 0);
+});
+
+test('selected-month figures use that month only', () => {
+  const plan = months(1600000, 0, 0, 0, 400000);
+  const obl = months(137244, 0, 0, 0, 0);
+  const october = monthFigures(plan, obl, 0);
+  assert.equal(october.plan, 1600000);
+  assert.equal(october.obligations, 137244);
+  assert.equal(october.actualMinusPlan, 137244 - 1600000);
+  assert.equal(october.execOfPlan.text, '8.6%');
+  const november = monthFigures(plan, obl, 1);
+  assert.equal(november.plan, 0);
+  assert.equal(november.obligations, 0);
+  assert.equal(november.actualMinusPlan, 0);
+  assert.equal(november.execOfPlan.text, 'N/A');
+  const may = monthFigures(plan, obl, 4);
+  assert.equal(may.plan, 400000);
+  assert.equal(may.obligations, 0);
+  assert.equal(may.execOfPlan.text, '0.0%');
+  assert.notEqual(october.plan, plan.reduce((s, v) => s + v, 0));
+});
+
+test('saved v2 state loads unchanged', () => {
+  const saved = {
+    version: 2,
+    phase: {
+      AT: months(100.5, 40),
+      BA: months(25),
+      SUB: months(),
+    },
+    obl: {
+      AT: months(10, 4),
+      BA: months(1),
+      SUB: months(),
+    },
+    oblProvenance: {
+      AT: { 'IPPS-A': months(6), 'DTS Travel': months(4) },
+    },
+    notes: { AT: { 0: 'kept note' }, BA: {}, SUB: {} },
+    legacy: {
+      role: 'migration-backup',
+      excludedFromActiveTotals: true,
+      fromKey: 'fy27-rpa-studio-v1',
+      undPhase: { AT: { 'IPPS-A': months(9), 'DTS Travel': months(8) } },
+      undPbg: { AT: 50 },
+      raw: { phase: { AT: { UND: { 'IPPS-A': [9] } } } },
+    },
+  };
+  const loaded = loadState((key) => key === STORAGE_KEY ? JSON.stringify(saved) : null, programs);
+  assert.equal(loaded.source, 'v2');
+  assert.equal(STORAGE_KEY, 'fy27-rpa-studio-v2');
+  assert.deepEqual(loaded.state.phase.AT, saved.phase.AT);
+  assert.deepEqual(loaded.state.phase.BA, saved.phase.BA);
+  assert.deepEqual(loaded.state.phase.SUB, saved.phase.SUB);
+  assert.deepEqual(loaded.state.obl.AT, saved.obl.AT);
+  assert.deepEqual(loaded.state.obl.BA, saved.obl.BA);
+  assert.deepEqual(loaded.state.oblProvenance.AT['IPPS-A'], saved.oblProvenance.AT['IPPS-A']);
+  assert.deepEqual(loaded.state.oblProvenance.AT['DTS Travel'], saved.oblProvenance.AT['DTS Travel']);
+  assert.equal(loaded.state.notes.AT[0], 'kept note');
+  assert.equal(loaded.state.legacy.undPhase.AT['IPPS-A'][0], 9);
+  assert.equal(loaded.state.legacy.undPhase.AT['DTS Travel'][0], 8);
+  assert.equal(loaded.state.legacy.undPbg.AT, 50);
+  assert.equal(loaded.state.legacy.raw.phase.AT.UND['IPPS-A'][0], 9);
+  assert.equal(programView(programs[0], loaded.state).exe[0], 10);
+  assert.equal(programView(programs[0], loaded.state).plan[0], 100.5);
 });

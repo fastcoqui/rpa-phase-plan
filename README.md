@@ -10,12 +10,12 @@ Unofficial MIRC FY27 RPA companion (Oct 2026 – Sep 2027) for 31 programs. Auth
 
 - The **Dashboard** opens first. It is the appropriation view: every program, all funds, whether or not a program is selected and whether or not fund or search is filtering the list.
 - Appropriation figures: authorized PBG, full-year phased dollars, unphased balance (PBG − full-year phased), cumulative plan and obligations through a month you select, actual − plan (obligations − plan), execution % of cumulative plan, and execution % of full-year PBG. Each percentage names its denominator and time basis. A zero denominator is **N/A**.
-- Monthly and cumulative charts: dashed straight-line PBG reference, phased-plan columns, obligations as a line with markers. The reference is not saved and does not fill the plan.
+- Monthly chart: phased-plan columns and an obligations line for each month. The figures under that chart are only the month selected in Cumulative through. Cumulative chart: dashed straight-line PBG reference, cumulative phased columns, and cumulative obligations. The reference is not saved and does not fill the plan.
 - A program drilldown stays on the dashboard and follows the Program selector. Phase plan, obligations, and imbalance stay available.
 - Each program has **one** yellow monthly plan row for Oct 2026–Sep 2027. Programs that use both IPPS-A and DTS Travel are phased on that single row. Single-system programs stay one row. There is no HQ / Undistributed / All block switch.
 - Monthly execution, monthly variance (plan − execution), cumulative plan / execution / variance, and quarter and annual totals stay on the phase plan. PBG and PBG − plan sit on the plan row.
 - Obligations are one row per program. That row is the program's execution. An optional system memo can note an IPPS-A / DTS split; the memo is not added to execution.
-- PM templates start blank. The straight-line percentages (8 / 17 / 25 … 100) are a comparison row and chart reference only.
+- PM templates start blank. The straight-line percentages (8 / 17 / 25 … 100) are a comparison row and the cumulative chart reference only.
 
 ## Where entries are stored
 
