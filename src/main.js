@@ -5,7 +5,7 @@ import {
   MONTHS, MONTHS_LONG, QTR, SL, LEGACY_STORAGE_KEY,
   appropriation, clearActiveEntries, commitAmount, fiscalThroughIndex, formatMoney,
   legacyExclusion, migrateState, narrativeFlags, num, parseAmount, periodSum,
-  programView, ratio, straightLineCumulative, straightLineMonthly,
+  monthFigures, programView, ratio, straightLineCumulative,
   sum, sumPbg, toCsv,
 } from './model.js';
 import { createPrototypeStore, storageFacts } from './storage.js';
@@ -214,8 +214,8 @@ function dashView(list) {
     ${filterNote}
     <div class="kpis inset">${metricCards(metrics, `All ${PROGRAMS.length} programs.`, 'approp')}</div>
     <div class="grid2">
-      <div class="card flat"><h3>Monthly</h3><div class="ch"><canvas id="c-approp-m"></canvas></div><div id="s-approp-m" class="cs"></div>
-        <p class="figcap">Bars are the phased plan. The dashed line is a straight-line slice of authorized PBG for comparison and is not a saved plan. The marked line is obligations. The amber tick is ${MONTHS_LONG[ui.through]}.</p></div>
+      <div class="card flat"><h3>Monthly · ${MONTHS_LONG[ui.through]}</h3><div class="ch"><canvas id="c-approp-m"></canvas></div><div id="s-approp-m" class="cs"></div>
+        <p class="figcap">Columns are each month's phased plan. The marked line is each month's obligations. The figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only. The amber tick marks that month.</p></div>
       <div class="card flat"><h3>Cumulative</h3><div class="ch"><canvas id="c-approp-c"></canvas></div><div id="s-approp-c" class="cs"></div>
         <p class="figcap">Bars are cumulative phased plan. The dashed line is cumulative straight-line PBG and reaches authorized PBG in September. It is not a saved plan. The marked line is cumulative obligations.</p></div>
     </div>
@@ -226,7 +226,6 @@ function dashView(list) {
 }
 
 function drillView(program) {
-  const view = programView(program, S);
   const metrics = appropriation([program], S, ui.through);
   const systems = (program.systems || []).join(' and ');
   return `<section class="card" id="drilldown" aria-labelledby="drill-title">
@@ -238,10 +237,10 @@ function drillView(program) {
     <button type="button" class="ghost" id="goto-plan">Open phase plan</button></div>
     <div class="kpis inset">${metricCards(metrics, `${program.code} only.`, 'drill')}</div>
     <div class="grid2">
-      <div class="card flat"><h3>Monthly</h3><div class="ch"><canvas id="c-prog-m"></canvas></div><div id="s-prog-m" class="cs"></div></div>
+      <div class="card flat"><h3>Monthly · ${MONTHS_LONG[ui.through]}</h3><div class="ch"><canvas id="c-prog-m"></canvas></div><div id="s-prog-m" class="cs"></div>
+        <p class="figcap">Figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only.</p></div>
       <div class="card flat"><h3>Cumulative</h3><div class="ch"><canvas id="c-prog-c"></canvas></div><div id="s-prog-c" class="cs"></div></div>
     </div>
-    <p class="hint">Plan ${formatMoney(view.tPlan)} for the full year. PBG − plan ${formatMoney(view.delta)}. Execution % of full-year plan: ${ratio(view.tExe, view.tPlan).text}.</p>
   </section>`;
 }
 
@@ -273,11 +272,13 @@ function figuresTable(metrics, pbg) {
 }
 
 function chartSummary(plan, exe, pbg, mode) {
-  const fullPlan = sum(plan);
-  const fullExe = sum(exe);
   if (mode === 'month') {
-    const exec = ratio(fullExe, fullPlan);
-    return `<span>Full-year plan <b>${formatMoney(fullPlan)}</b></span><span>Full-year obligations <b>${formatMoney(fullExe)}</b></span><span>Actual − plan <b>${formatMoney(fullExe - fullPlan)}</b></span><span>Execution % of plan <b>${exec.text}</b> <small>denominator: full-year plan</small></span><span>PBG <b>${formatMoney(pbg)}</b></span>`;
+    const month = monthFigures(plan, exe, ui.through);
+    const label = `${MONTHS_LONG[month.index]} (${MONTHS[month.index]})`;
+    const basis = month.execOfPlan.value == null
+      ? `N/A because the ${MONTHS[month.index]} plan is zero`
+      : `denominator: ${MONTHS[month.index]} plan`;
+    return `<span>${label} plan <b data-month-plan="${month.plan}">${formatMoney(month.plan)}</b></span><span>${label} obligations <b data-month-obl="${month.obligations}">${formatMoney(month.obligations)}</b></span><span>Actual − plan <b data-month-var="${month.actualMinusPlan}">${formatMoney(month.actualMinusPlan)}</b> <small>${label} obligations minus ${label} plan</small></span><span>Execution % of plan <b data-month-exec="${month.execOfPlan.text}">${month.execOfPlan.text}</b> <small>${basis}</small></span>`;
   }
   const through = ui.through;
   const cumPlan = plan[through];
@@ -293,15 +294,19 @@ function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) 
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', aria);
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const datasets = [];
+  if (mode !== 'month') {
+    datasets.push({ type: 'line', label: 'PBG reference (straight-line)', data: pbgRef.slice(), fill: false, borderColor: '#64748b', borderDash: [6, 4], pointRadius: 0, tension: 0, order: 3 });
+  }
+  datasets.push(
+    { type: 'bar', label: 'Phased plan', data: plan.slice(), backgroundColor: '#1e3a8a', borderRadius: 3, maxBarThickness: 28, order: 2 },
+    { type: 'line', label: 'Obligations', data: exe.slice(), borderColor: '#b45309', backgroundColor: '#f59e0b', pointRadius: 4, pointHoverRadius: 6, borderWidth: 2.5, tension: 0.15, order: 1 },
+  );
   charts.push(new Chart(canvas, {
     plugins: [makeThroughPlugin(ui.through)],
     data: {
       labels: MONTHS,
-      datasets: [
-        { type: 'line', label: 'PBG reference (straight-line)', data: pbgRef.slice(), fill: false, borderColor: '#64748b', borderDash: [6, 4], pointRadius: 0, tension: 0, order: 3 },
-        { type: 'bar', label: 'Phased plan', data: plan.slice(), backgroundColor: '#1e3a8a', borderRadius: 3, maxBarThickness: 28, order: 2 },
-        { type: 'line', label: 'Obligations', data: exe.slice(), borderColor: '#b45309', backgroundColor: '#f59e0b', pointRadius: 4, pointHoverRadius: 6, borderWidth: 2.5, tension: 0.15, order: 1 },
-      ],
+      datasets,
     },
     options: {
       responsive: true,
@@ -348,10 +353,9 @@ function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) 
 
 function drawDash(list) {
   const metrics = appropriation(PROGRAMS, S, ui.through);
-  const monthAria = `Appropriation monthly chart for all ${PROGRAMS.length} programs. Dashed line is straight-line PBG reference and is not a saved plan. Bars are phased plan. Marked line is obligations.`;
+  const monthAria = `Appropriation monthly chart for all ${PROGRAMS.length} programs. Bars are each month's phased plan. Marked line is each month's obligations. Summary figures are for ${MONTHS_LONG[ui.through]} only.`;
   const cumAria = `Appropriation cumulative chart for all ${PROGRAMS.length} programs through ${MONTHS_LONG[ui.through]}. Dashed line is cumulative straight-line PBG reference and is not a saved plan.`;
   drawCombo('c-approp-m', 's-approp-m', {
-    pbgRef: straightLineMonthly(metrics.pbg),
     plan: metrics.plan,
     exe: metrics.exe,
     pbg: metrics.pbg,
@@ -370,12 +374,11 @@ function drawDash(list) {
   if (!program) return;
   const view = programView(program, S);
   drawCombo('c-prog-m', 's-prog-m', {
-    pbgRef: straightLineMonthly(view.pbg),
     plan: view.plan,
     exe: view.exe,
     pbg: view.pbg,
     mode: 'month',
-    aria: `${program.code} monthly chart. Dashed line is that program's straight-line PBG reference and is not a saved plan.`,
+    aria: `${program.code} monthly chart for ${MONTHS_LONG[ui.through]}. Bars are each month's phased plan. Marked line is each month's obligations.`,
   });
   drawCombo('c-prog-c', 's-prog-c', {
     pbgRef: straightLineCumulative(view.pbg),
