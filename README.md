@@ -8,10 +8,11 @@ Unofficial MIRC FY27 RPA companion (Oct 2026 – Sep 2027) for 31 programs. Auth
 
 ## What you can do
 
-- The **Dashboard** opens first. It is the appropriation view: every program, all funds, whether or not a program is selected and whether or not fund or search is filtering the list.
-- Appropriation figures: authorized PBG, full-year phased dollars, unphased balance (PBG − full-year phased), cumulative plan and obligations through a month you select, actual − plan (obligations − plan), execution % of cumulative plan, and execution % of full-year PBG. Each percentage names its denominator and time basis. A zero denominator is **N/A**.
-- Monthly chart: phased-plan columns and an obligations line for each month. The figures under that chart are only the month selected in Cumulative through. Cumulative chart: dashed straight-line PBG reference, cumulative phased columns, and cumulative obligations. The reference is not saved and does not fill the plan.
-- A program drilldown stays on the dashboard and follows the Program selector. Phase plan, obligations, and imbalance stay available.
+- The **Dashboard** opens first. It is the appropriation view for the programs chosen in **Programs**, all funds. The default is every program. Fund, search, and the selected program narrow the list and the drilldown only. Excluding a program leaves its phase plan and obligations in place, and that program can still be opened.
+- Appropriation figures for the included programs: authorized PBG, full-year phased dollars, unphased balance (PBG − full-year phased), cumulative plan and obligations through a month you select, actual − plan (obligations − plan), execution % of cumulative plan, and execution % of full-year PBG. Each percentage names its denominator and time basis. A zero denominator is **N/A**. With no programs included, the totals are zero and those percentages are N/A.
+- Monthly chart: phased-plan columns and an obligations line for each month, for the included programs. The figures under that chart are only the month selected in Cumulative through. Cumulative chart: dashed straight-line reference from the included programs' PBG, cumulative phased columns, and cumulative obligations. The reference is not saved and does not fill the plan.
+- A program drilldown stays on the dashboard and follows the Program selector, including a program left out of the appropriation totals. Phase plan, obligations, and imbalance stay available.
+- Quarter highlight sits with the phase plan (Q1, Q2, Q3, Q4, or Annual). It shades that quarter's month columns and quarter total. It is display only and is not saved.
 - Each program has **one** yellow monthly plan row for Oct 2026–Sep 2027. Programs that use both IPPS-A and DTS Travel are phased on that single row. Single-system programs stay one row. There is no HQ / Undistributed / All block switch.
 - Monthly execution, monthly variance (plan − execution), cumulative plan / execution / variance, and quarter and annual totals stay on the phase plan. PBG and PBG − plan sit on the plan row.
 - Obligations are one row per program. That row is the program's execution. An optional system memo can note an IPPS-A / DTS split; the memo is not added to execution.
@@ -34,7 +35,7 @@ The live page is the static build of `main` from before this revision. On startu
 Calculations and migration live in `src/model.js` and do not read or write storage. `src/storage.js` is the only persistence adapter. It reads `fy27-rpa-studio-v1` once, writes `fy27-rpa-studio-v2`, and does not delete the old key.
 
 - Working copy: in memory while the tab is open.
-- Saved copy: `localStorage` key `fy27-rpa-studio-v2` on this device and browser profile.
+- Saved copy: `localStorage` key `fy27-rpa-studio-v2` on this device and browser profile. The save may include `dashboardIncluded`, the appropriation program selection. If that field is absent, every program is included. It does not replace plan or obligation amounts. Reset clears the active plan and obligations, keeps a migration backup, and keeps this selection.
 - Autosave: as you type, and again when the tab is hidden or closed. Totals and charts refresh when you leave a cell.
 - Import accepts a JSON export from the published site or from this revision. Import **replaces** what is stored in the browser where you import it. Export the current browser first if you need to keep it.
 - Export JSON keeps entered values and any migration backup. Export CSV is rounded to the dollar and cannot be imported.

@@ -4,8 +4,8 @@ import PROGRAMS from './data/programs.json';
 import {
   MONTHS, MONTHS_LONG, QTR, SL, LEGACY_STORAGE_KEY,
   appropriation, clearActiveEntries, commitAmount, fiscalThroughIndex, formatMoney,
-  legacyExclusion, migrateState, narrativeFlags, num, parseAmount, periodSum,
-  monthFigures, programView, ratio, straightLineCumulative,
+  includedPrograms, legacyExclusion, migrateState, narrativeFlags, num, parseAmount, periodSum,
+  monthFigures, programView, ratio, setDashboardIncluded, straightLineCumulative,
   sum, sumPbg, toCsv,
 } from './model.js';
 import { createPrototypeStore, storageFacts } from './storage.js';
@@ -26,6 +26,8 @@ const ui = {
   period: 'Annual',
   tab: 'dash',
   through: fiscalThroughIndex(new Date()),
+  programsOpen: false,
+  programQuery: '',
   saveLabel: startupSaveFailed
     ? 'This browser blocked local save — Export JSON to keep a copy'
     : loaded.source === 'blank'
@@ -62,6 +64,18 @@ function filtered() {
 
 function selectedProgram(list) {
   return list.find(program => program.code === ui.code) || null;
+}
+
+function dashboardPrograms() {
+  return includedPrograms(PROGRAMS, S);
+}
+
+function openProgramPicker() {
+  ui.tab = 'dash';
+  ui.programsOpen = true;
+  render();
+  const box = document.getElementById('programs-q');
+  if (box) box.focus();
 }
 
 function throughText(index) {
@@ -115,6 +129,8 @@ function render() {
   if (list.length && !list.some(program => program.code === ui.code)) ui.code = list[0].code;
   const grand = sumPbg(PROGRAMS);
   const exclusion = legacyExclusion(S);
+  const includedCount = dashboardPrograms().length;
+  const selectionFiltered = includedCount !== PROGRAMS.length;
   app.innerHTML = `
   <header class="hdr"><div class="brand"><div class="logo">RPA</div><div>
     <h1>FY27 RPA Phase-plan Studio</h1>
@@ -147,7 +163,7 @@ function render() {
     <label>Fund<select id="fund">${['ALL','BASE','OOC','EDI'].map(fund => `<option ${fund === ui.fund ? 'selected' : ''}>${fund}</option>`).join('')}</select></label>
     <label class="grow">Search<input id="q" value="${esc(ui.q)}" placeholder="Program, MDEP, SAG…" autocomplete="off"></label>
     <label>Program<select id="code">${list.map(program => `<option value="${esc(program.code)}" ${program.code === ui.code ? 'selected' : ''}>${esc(program.code)} — ${esc(program.name)}</option>`).join('')}</select></label>
-    <div class="field"><span>Quarter highlight</span><span class="seg" id="period">${Object.keys(QTR).map(period => `<button type="button" data-v="${period}" class="${period === ui.period ? 'on' : ''}" aria-pressed="${period === ui.period}">${period}</button>`).join('')}</span></div>
+    ${selectionFiltered && ui.tab !== 'dash' ? `<button type="button" id="showing-chip" class="filter-chip" title="Edit which programs the appropriation dashboard includes">Showing ${includedCount} of ${PROGRAMS.length} programs</button>` : ''}
   </section>
   <nav class="tabs" role="tablist" aria-label="Sections">
     ${[['dash','Dashboard'],['plan','Phase plan'],['obl','Obligations'],['imb','Imbalance']].map(([id, label]) => `<button type="button" role="tab" data-t="${id}" aria-selected="${ui.tab === id}" class="${ui.tab === id ? 'on' : ''}">${label}</button>`).join('')}
@@ -180,7 +196,7 @@ function metricCards(metrics, scope, prefix) {
     ? 'Share of PBG: N/A because full-year authorized PBG is zero.'
     : `Share of PBG: ${metrics.phasedOfPbg.text}. Denominator: full-year authorized PBG.`;
   const time = throughText(metrics.throughIndex);
-  const unphasedTone = metrics.unphased === 0 ? 'ok' : 'warn';
+  const unphasedTone = metrics.programs === 0 ? '' : metrics.unphased === 0 ? 'ok' : 'warn';
   const varianceTone = metrics.actualMinusPlan > 0 ? 'warn' : '';
   return `
     ${kpi('Authorized PBG', formatMoney(metrics.pbg), `${scope} Full-year authority, counted once.`, '', `${prefix}-pbg`)}
@@ -194,45 +210,92 @@ function metricCards(metrics, scope, prefix) {
   `;
 }
 
+function programPicker(included) {
+  const total = PROGRAMS.length;
+  const count = included.length;
+  const filtered = count !== total;
+  const query = ui.programQuery.trim().toLowerCase();
+  const visible = PROGRAMS.filter(program => !query || `${program.code} ${program.name} ${program.mdep} ${program.fund} ${program.sag}`.toLowerCase().includes(query));
+  const chosen = new Set(included.map(program => program.code));
+  const status = filtered ? `Showing ${count} of ${total} programs` : `All ${total} programs`;
+  const rows = visible.map(program => `<li><label><input type="checkbox" data-include="${esc(program.code)}" ${chosen.has(program.code) ? 'checked' : ''}> <span class="code">${esc(program.code)}</span> <span class="pname">${esc(program.name)}</span> <span class="meta">${esc(program.fund)} · ${formatMoney(program.pbg)}</span></label></li>`).join('');
+  return `<div class="program-filter ${filtered ? 'is-filtered' : ''}">
+    <div class="program-filter-bar">
+      <button type="button" id="programs-toggle" class="programs-toggle" aria-expanded="${ui.programsOpen}" aria-controls="programs-panel">Programs</button>
+      <span class="showing ${filtered ? 'on' : ''}" id="programs-showing" role="status">${esc(status)}</span>
+    </div>
+    <div id="programs-panel" class="programs-panel" role="region" aria-label="Programs included in appropriation totals" ${ui.programsOpen ? '' : 'hidden'}>
+      <input id="programs-q" type="search" value="${esc(ui.programQuery)}" placeholder="Search programs…" autocomplete="off" aria-label="Search programs to include">
+      <div class="programs-actions">
+        <button type="button" id="programs-all" class="ghost">Select all</button>
+        <button type="button" id="programs-none" class="ghost">Clear all</button>
+      </div>
+      <p class="hint">Select all and Clear all apply to every program, including ones hidden by this search. Unchecking a program removes it from these totals only.</p>
+      <ul class="programs-list">${rows || '<li class="empty">No programs match that search.</li>'}</ul>
+    </div>
+  </div>`;
+}
+
 function dashView(list) {
-  const metrics = appropriation(PROGRAMS, S, ui.through);
+  const included = dashboardPrograms();
+  const metrics = appropriation(included, S, ui.through);
   const program = selectedProgram(list);
+  const total = PROGRAMS.length;
+  const count = included.length;
+  const filtered = count !== total;
+  const scopeLine = count === 0
+    ? 'No programs are included. Totals are zero and percentages are N/A.'
+    : filtered
+      ? `${count} of ${total} programs, all funds, counted once.`
+      : `All ${total} programs and all funds, counted once.`;
   const filterNote = (ui.fund !== 'ALL' || ui.q)
-    ? `<p class="filter-note">Fund or search is narrowing the program list and the drilldown below. These appropriation totals still include every program.</p>`
+    ? `<p class="filter-note">Fund or search is narrowing the program list and the drilldown below. These appropriation totals follow Programs${filtered ? ` (${count} of ${total})` : ' (every program)'} and do not follow fund or search.</p>`
     : '';
-  return `<section class="appropriation" id="appropriation" aria-labelledby="approp-title" data-through="${MONTHS[metrics.throughIndex]}">
+  const banner = filtered
+    ? `<p class="filter-banner" role="status">Showing ${count} of ${total} programs. Excluded programs stay in the phase plan and drilldown, and their amounts are unchanged.</p>`
+    : '';
+  const empty = count === 0
+    ? `<div class="empty-approp" role="status"><p>No programs are included in this appropriation view. Open Programs and select at least one. Charts stay hidden so a zero total is not drawn as a broken scale. Saved phase plans and obligations are unchanged.</p></div>`
+    : `<div class="grid2">
+      <div class="card flat"><h3>Monthly · ${MONTHS_LONG[ui.through]}</h3><div class="ch"><canvas id="c-approp-m"></canvas></div><div id="s-approp-m" class="cs"></div>
+        <p class="figcap">Columns are each month's phased plan${filtered ? ' for the included programs' : ''}. The marked line is each month's obligations. The figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only. The amber tick marks that month.</p></div>
+      <div class="card flat"><h3>Cumulative</h3><div class="ch"><canvas id="c-approp-c"></canvas></div><div id="s-approp-c" class="cs"></div>
+        <p class="figcap">Bars are cumulative phased plan. The dashed line is cumulative straight-line PBG and reaches ${filtered ? "the included programs' authorized PBG" : 'authorized PBG'} in September. It is not a saved plan. The marked line is cumulative obligations.</p></div>
+    </div>
+    <p class="figcap">Monthly figures for the appropriation. Cumulative columns include the month shown and every earlier month. Execution percentages use that row's cumulative plan, or the included programs' full-year authorized PBG, as the denominator. N/A means the denominator is zero.</p>
+    ${figuresTable(metrics, metrics.pbg)}`;
+  return `<section class="appropriation" id="appropriation" aria-labelledby="approp-title" data-through="${MONTHS[metrics.throughIndex]}" data-included="${count}" data-programs="${total}">
     <div class="dash-top">
       <div>
         <p class="eyebrow"><span class="badge">Default view</span> Appropriation</p>
         <h2 id="approp-title">RPA appropriation</h2>
-        <p class="scope">All ${PROGRAMS.length} programs and all funds, counted once. Changing the program, fund, or search does not change these totals.</p>
+        <p class="scope">${scopeLine} Fund and search change the program list and the drilldown only. Excluding a program here leaves its phase plan and obligations in place.</p>
       </div>
       <label class="month-pick">Cumulative through
         <select id="through" aria-label="Month for cumulative appropriation metrics">${MONTHS.map((month, index) => `<option value="${index}" ${index === ui.through ? 'selected' : ''}>${MONTHS_LONG[index]}</option>`).join('')}</select>
       </label>
     </div>
+    ${programPicker(included)}
+    ${banner}
     ${filterNote}
-    <div class="kpis inset">${metricCards(metrics, `All ${PROGRAMS.length} programs.`, 'approp')}</div>
-    <div class="grid2">
-      <div class="card flat"><h3>Monthly · ${MONTHS_LONG[ui.through]}</h3><div class="ch"><canvas id="c-approp-m"></canvas></div><div id="s-approp-m" class="cs"></div>
-        <p class="figcap">Columns are each month's phased plan. The marked line is each month's obligations. The figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only. The amber tick marks that month.</p></div>
-      <div class="card flat"><h3>Cumulative</h3><div class="ch"><canvas id="c-approp-c"></canvas></div><div id="s-approp-c" class="cs"></div>
-        <p class="figcap">Bars are cumulative phased plan. The dashed line is cumulative straight-line PBG and reaches authorized PBG in September. It is not a saved plan. The marked line is cumulative obligations.</p></div>
-    </div>
-    <p class="figcap">Monthly figures for the appropriation. Cumulative columns include the month shown and every earlier month. Execution percentages use that row's cumulative plan, or full-year authorized PBG, as the denominator. N/A means the denominator is zero.</p>
-    ${figuresTable(metrics, metrics.pbg)}
+    <div class="kpis inset">${metricCards(metrics, count === total ? `All ${total} programs.` : `${count} of ${total} programs.`, 'approp')}</div>
+    ${empty}
   </section>
-  ${program ? drillView(program) : `<section class="card" id="drilldown"><h2>Program drilldown</h2><p class="empty">No program matches the fund and search filters. The appropriation totals above still include every program.</p></section>`}`;
+  ${program ? drillView(program, new Set(included.map(item => item.code))) : `<section class="card" id="drilldown"><h2>Program drilldown</h2><p class="empty">No program matches the fund and search filters. Appropriation totals above follow Programs, not this fund or search.</p></section>`}`;
 }
 
-function drillView(program) {
+function drillView(program, includedCodes) {
   const metrics = appropriation([program], S, ui.through);
   const systems = (program.systems || []).join(' and ');
+  const excluded = includedCodes && !includedCodes.has(program.code);
+  const membership = excluded
+    ? 'Excluded from the appropriation totals above. Its plan and obligations are unchanged and are still shown here.'
+    : 'Already included once in the appropriation totals above.';
   return `<section class="card" id="drilldown" aria-labelledby="drill-title">
     <div class="card-h"><div>
       <p class="eyebrow">Program drilldown</p>
       <h2 id="drill-title">${esc(program.code)} — ${esc(program.name)}</h2>
-      <p class="scope">This program only. MDEP ${esc(program.mdep)} · Fund ${esc(program.fund)} · SAG ${esc(program.sag)} · Systems covered by its one plan row: ${esc(systems)}. Already included once in the appropriation totals above. Cumulative figures use ${throughText(ui.through)}.</p>
+      <p class="scope">This program only. MDEP ${esc(program.mdep)} · Fund ${esc(program.fund)} · SAG ${esc(program.sag)} · Systems covered by its one plan row: ${esc(systems)}. ${membership} Cumulative figures use ${throughText(ui.through)}.</p>
     </div>
     <button type="button" class="ghost" id="goto-plan">Open phase plan</button></div>
     <div class="kpis inset">${metricCards(metrics, `${program.code} only.`, 'drill')}</div>
@@ -352,24 +415,30 @@ function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) 
 }
 
 function drawDash(list) {
-  const metrics = appropriation(PROGRAMS, S, ui.through);
-  const monthAria = `Appropriation monthly chart for all ${PROGRAMS.length} programs. Bars are each month's phased plan. Marked line is each month's obligations. Summary figures are for ${MONTHS_LONG[ui.through]} only.`;
-  const cumAria = `Appropriation cumulative chart for all ${PROGRAMS.length} programs through ${MONTHS_LONG[ui.through]}. Dashed line is cumulative straight-line PBG reference and is not a saved plan.`;
-  drawCombo('c-approp-m', 's-approp-m', {
-    plan: metrics.plan,
-    exe: metrics.exe,
-    pbg: metrics.pbg,
-    mode: 'month',
-    aria: monthAria,
-  });
-  drawCombo('c-approp-c', 's-approp-c', {
-    pbgRef: straightLineCumulative(metrics.pbg),
-    plan: metrics.cp,
-    exe: metrics.ce,
-    pbg: metrics.pbg,
-    mode: 'cum',
-    aria: cumAria,
-  });
+  const included = dashboardPrograms();
+  const metrics = appropriation(included, S, ui.through);
+  const scope = included.length === PROGRAMS.length
+    ? `all ${PROGRAMS.length} programs`
+    : `${included.length} of ${PROGRAMS.length} programs`;
+  const monthAria = `Appropriation monthly chart for ${scope}. Bars are each month's phased plan. Marked line is each month's obligations. Summary figures are for ${MONTHS_LONG[ui.through]} only.`;
+  const cumAria = `Appropriation cumulative chart for ${scope} through ${MONTHS_LONG[ui.through]}. Dashed line is cumulative straight-line PBG reference for the included authorized PBG and is not a saved plan.`;
+  if (included.length) {
+    drawCombo('c-approp-m', 's-approp-m', {
+      plan: metrics.plan,
+      exe: metrics.exe,
+      pbg: metrics.pbg,
+      mode: 'month',
+      aria: monthAria,
+    });
+    drawCombo('c-approp-c', 's-approp-c', {
+      pbgRef: straightLineCumulative(metrics.pbg),
+      plan: metrics.cp,
+      exe: metrics.ce,
+      pbg: metrics.pbg,
+      mode: 'cum',
+      aria: cumAria,
+    });
+  }
   const program = selectedProgram(list);
   if (!program) return;
   const view = programView(program, S);
@@ -390,11 +459,29 @@ function drawDash(list) {
   });
 }
 
+function quarterHeads() {
+  return ['Q1', 'Q2', 'Q3', 'Q4'].map(quarter => `<th scope="col" class="${ui.period === quarter ? 'hl' : ''}">${quarter}</th>`).join('');
+}
+
 function quarterCells(values) {
   return ['Q1', 'Q2', 'Q3', 'Q4'].map(quarter => {
     const hot = ui.period === quarter ? 'q hl' : 'q';
     return `<td class="${hot}">${formatMoney(periodSum(values, quarter))}</td>`;
   }).join('');
+}
+
+function quarterControl() {
+  const note = ui.period === 'Annual'
+    ? 'Annual leaves every month unshaded.'
+    : `${ui.period} months and the ${ui.period} total are shaded. Numbers stay readable, and nothing here is saved.`;
+  const buttons = Object.keys(QTR).map(period => `<button type="button" data-v="${period}" class="${period === ui.period ? 'on' : ''}" aria-pressed="${period === ui.period}">${period}</button>`).join('');
+  return `<div class="plan-tools">
+    <div class="quarter-field">
+      <span id="period-label">Quarter highlight</span>
+      <span class="seg" id="period" role="group" aria-labelledby="period-label">${buttons}</span>
+    </div>
+    <p class="highlight-status ${ui.period === 'Annual' ? '' : 'on'}" role="status">${esc(note)}</p>
+  </div>`;
 }
 
 function hot(index) {
@@ -416,14 +503,17 @@ function planView(list) {
     : `One plan row for this program${systems.length ? ` (${systems[0]})` : ''}.`;
   const inputs = MONTHS.map((month, index) => `<td class="in ${hot(index)}"><input data-k="phase" data-c="${esc(program.code)}" data-i="${index}" value="${fieldValue(view.plan[index])}" inputmode="decimal" autocomplete="off" aria-label="${esc(program.code)} plan ${month}"></td>`).join('');
   const oblInputs = MONTHS.map((month, index) => `<td class="in ${hot(index)}"><input data-k="obl" data-c="${esc(program.code)}" data-i="${index}" value="${fieldValue(view.exe[index])}" inputmode="decimal" autocomplete="off" aria-label="${esc(program.code)} obligations ${month}"></td>`).join('');
-  const head = `<tr><th scope="col"></th>${MONTHS.map((month, index) => `<th scope="col" class="${hot(index)}">${month}</th>`).join('')}<th scope="col">Q1</th><th scope="col">Q2</th><th scope="col">Q3</th><th scope="col">Q4</th><th scope="col">Total</th><th scope="col">PBG</th><th scope="col">PBG − plan</th></tr>`;
+  const head = `<tr><th scope="col"></th>${MONTHS.map((month, index) => `<th scope="col" class="${hot(index)}">${month}</th>`).join('')}${quarterHeads()}<th scope="col">Total</th><th scope="col">PBG</th><th scope="col">PBG − plan</th></tr>`;
   const execPct = ratio(view.tExe, view.tPlan);
+  const excludedFromDash = !dashboardPrograms().some(item => item.code === program.code);
   return `<div class="card"><div class="card-h"><div><h2>${esc(program.code)} — ${esc(program.name)}</h2>
     <p>MDEP ${esc(program.mdep)} · Fund ${esc(program.fund)} · SAG ${esc(program.sag)}</p>
     <div class="syschips">${systems.map(system => `<span>${esc(system)}</span>`).join('')}</div></div>
     <div class="chip ${view.delta === 0 ? 'ok' : 'warn'}">PBG − plan ${formatMoney(view.delta)}</div></div>
     <p class="hint">${esc(systemText)} Yellow cells are the entry. Monthly execution uses the same obligation figures as the Obligations tab, stored once. Quarter highlight does not change what is saved. MTH and CML variance are plan minus execution. The appropriation dashboard also shows actual minus plan.</p>
-    <div class="tw"><table data-plan-rows="1"><thead>${head}</thead><tbody>
+    ${excludedFromDash ? '<p class="filter-banner">This program is excluded from the appropriation dashboard. Amounts entered here stay saved and stay out of those totals until it is included again.</p>' : ''}
+    ${quarterControl()}
+    <div class="tw"><table data-plan-rows="1" data-quarter-highlight="${esc(ui.period)}"><thead>${head}</thead><tbody>
       <tr class="roll"><th>MTH Plan</th>${inputs}${quarterCells(view.plan)}<td class="tot">${formatMoney(view.tPlan)}</td><td class="pbg">${formatMoney(view.pbg)}</td><td class="${view.delta ? 'bad' : 'good'}">${formatMoney(view.delta)}</td></tr>
       <tr><th>MTH Execution</th>${oblInputs}${quarterCells(view.exe)}<td class="tot">${formatMoney(view.tExe)}</td><td></td><td></td></tr>
       <tr class="var"><th>MTH Variance (plan − execution)</th>${moneyCells(view.var)}${quarterCells(view.var)}<td class="tot">${formatMoney(sum(view.var))}</td><td></td><td></td></tr>
@@ -441,7 +531,7 @@ function oblView(list) {
   const scoped = appropriation(list, S, 11);
   const multi = list.filter(program => (program.systems || []).length > 1);
   return `<div class="card"><h2>Monthly obligations by program</h2>
-    <p class="hint">Each yellow row is that program's execution. It feeds monthly execution, cumulative execution, variance, and the appropriation dashboard once. ${list.length} programs in this fund and search. Full-year obligations ${formatMoney(scoped.fullYearObl)}. Full-year plan ${formatMoney(scoped.fullYearPhased)}. The appropriation dashboard still includes every program.</p>
+    <p class="hint">Each yellow row is that program's execution. It feeds monthly execution, cumulative execution, variance, and the appropriation dashboard once. ${list.length} programs in this fund and search. Full-year obligations ${formatMoney(scoped.fullYearObl)}. Full-year plan ${formatMoney(scoped.fullYearPhased)}. The appropriation dashboard follows Programs and can omit a program that is still listed here.</p>
     <div class="tw"><table><thead><tr><th scope="col">Program</th>${MONTHS.map(month => `<th scope="col">${month}</th>`).join('')}<th scope="col">Total</th><th scope="col">Plan</th><th scope="col">Execution % of plan</th></tr></thead><tbody>
     ${list.map(program => {
       const view = programView(program, S);
@@ -483,7 +573,7 @@ function imbView(list) {
   });
   const unbalanced = rows.filter(row => row.view.delta !== 0);
   return `<div class="card"><h2>PBG vs plan balance</h2>
-    <p class="hint">${unbalanced.length} of ${rows.length} programs in this fund and search have an unphased balance. Authorized PBG is counted once per program. The straight-line reference is never written into the plan. The appropriation dashboard includes every program, including ones hidden by this filter. Narrative prompts use the current fiscal month (${MONTHS[asOf]}).</p>
+    <p class="hint">${unbalanced.length} of ${rows.length} programs in this fund and search have an unphased balance. Authorized PBG is counted once per program. The straight-line reference is never written into the plan. The appropriation dashboard follows Programs, including programs hidden by this fund or search filter. Narrative prompts use the current fiscal month (${MONTHS[asOf]}).</p>
     <div class="tw"><table><thead><tr><th scope="col">Program</th><th scope="col">Fund</th><th scope="col">PBG</th><th scope="col">Plan</th><th scope="col">PBG − plan</th><th scope="col">% phased</th><th scope="col">Obligations</th><th scope="col">Execution % of plan</th><th scope="col">Flags</th></tr></thead><tbody>
     ${rows.map(({ program, view, flags }) => {
       const phased = ratio(view.tPlan, view.pbg);
@@ -533,7 +623,74 @@ function wire() {
     button.onclick = () => { ui.period = button.dataset.v; render(); };
   });
   document.querySelectorAll('.tabs button').forEach(button => {
-    button.onclick = () => { ui.tab = button.dataset.t; render(); };
+    button.onclick = () => {
+      ui.tab = button.dataset.t;
+      if (ui.tab !== 'dash') ui.programsOpen = false;
+      render();
+    };
+  });
+  const showingChip = $('showing-chip');
+  if (showingChip) showingChip.onclick = () => openProgramPicker();
+  const programsToggle = $('programs-toggle');
+  if (programsToggle) {
+    programsToggle.onclick = () => {
+      ui.programsOpen = !ui.programsOpen;
+      render();
+      if (ui.programsOpen) {
+        const box = $('programs-q');
+        if (box) box.focus();
+      }
+    };
+  }
+  const programsAll = $('programs-all');
+  if (programsAll) {
+    programsAll.onclick = () => {
+      setDashboardIncluded(S, PROGRAMS, PROGRAMS.map(program => program.code));
+      ui.programsOpen = true;
+      persist();
+      render();
+      const again = $('programs-all');
+      if (again) again.focus();
+    };
+  }
+  const programsNone = $('programs-none');
+  if (programsNone) {
+    programsNone.onclick = () => {
+      setDashboardIncluded(S, PROGRAMS, []);
+      ui.programsOpen = true;
+      persist();
+      render();
+      const again = $('programs-none');
+      if (again) again.focus();
+    };
+  }
+  const programsQuery = $('programs-q');
+  if (programsQuery) {
+    programsQuery.oninput = (event) => {
+      ui.programQuery = event.target.value;
+      ui.programsOpen = true;
+      clearTimeout(wire.programTimer);
+      wire.programTimer = setTimeout(() => {
+        render();
+        const box = $('programs-q');
+        if (!box) return;
+        box.focus();
+        box.setSelectionRange(box.value.length, box.value.length);
+      }, 200);
+    };
+  }
+  document.querySelectorAll('input[data-include]').forEach(box => {
+    box.onchange = () => {
+      const codes = dashboardPrograms().map(program => program.code);
+      const code = box.dataset.include;
+      const next = box.checked ? codes.concat(code) : codes.filter(item => item !== code);
+      setDashboardIncluded(S, PROGRAMS, next);
+      ui.programsOpen = true;
+      persist();
+      render();
+      const again = document.querySelector(`input[data-include="${CSS.escape(code)}"]`);
+      if (again) again.focus();
+    };
   });
   const goto = $('goto-plan');
   if (goto) goto.onclick = () => { ui.tab = 'plan'; render(); };

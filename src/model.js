@@ -287,6 +287,9 @@ function normalizeV2(raw, programs) {
     }
   }
   next.legacy = mergeBackup(raw.legacy, foundPhase, foundPbg);
+  if (Object.prototype.hasOwnProperty.call(raw, 'dashboardIncluded') && Array.isArray(raw.dashboardIncluded)) {
+    setDashboardIncluded(next, programs, raw.dashboardIncluded);
+  }
   return next;
 }
 
@@ -347,7 +350,37 @@ export function loadState(read, programs) {
 export function clearActiveEntries(state, programs) {
   const next = blankState(programs);
   next.legacy = state && state.legacy ? deepCopy(state.legacy) : null;
+  if (Array.isArray(state?.dashboardIncluded)) {
+    setDashboardIncluded(next, programs, state.dashboardIncluded);
+  }
   return next;
+}
+
+// Programs whose phase and obligations feed the appropriation dashboard.
+// `dashboardIncluded` is optional. When it is missing, or not an array, every
+// program is included. An empty array includes none. Phase and obligation
+// amounts are never read or written here.
+export function includedPrograms(programs, state) {
+  const list = programs || [];
+  const raw = state?.dashboardIncluded;
+  if (!Array.isArray(raw)) return list.slice();
+  const wanted = new Set(raw.map(code => String(code)));
+  return list.filter(program => wanted.has(program.code));
+}
+
+// Stores the dashboard selection on `state` without touching phase, obligations,
+// notes, provenance, or the migration backup. Selecting every current program
+// removes the field so an older save (no field) and "all included" stay the same.
+export function setDashboardIncluded(state, programs, codes) {
+  const list = programs || [];
+  const wanted = new Set((codes || []).map(code => String(code)));
+  const next = [];
+  for (const program of list) {
+    if (wanted.has(program.code)) next.push(program.code);
+  }
+  if (next.length === list.length) delete state.dashboardIncluded;
+  else state.dashboardIncluded = next;
+  return state;
 }
 
 export function programView(program, state) {
