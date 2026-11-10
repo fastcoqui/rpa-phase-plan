@@ -4,7 +4,7 @@ import {
   LEGACY_STORAGE_KEY, STORAGE_KEY, applySofMonth, appropriation, blankState, calloutLines,
   clearActiveEntries, commitAmount, deriveMonthlyFromCumulative, fiscalMonthFromIso, fiscalThroughIndex,
   formatMoney, includedPrograms, legacyExclusion, loadState, migrateState, monthFigures, narrativeFlags,
-  obligationCallout, parseAmount, periodSum, planExecutionTone, previewSofApply, priorMonthsObligation, programView, ratio,
+  executionBand, obligationCallout, parseAmount, periodSum, planExecutionTone, previewSofApply, priorMonthsObligation, programView, ratio,
   setDashboardIncluded, straightLineCumulative, straightLineMonthly, toCsv,
 } from '../src/model.js';
 
@@ -432,6 +432,8 @@ test('95% obligation callout matches the worked example and the edge cases', () 
   assert.equal(Math.abs((0.95 * 5374900) - 345122 - 4761033) < 0.01, true);
   const lines = calloutLines(5374900, 345122);
   assert.equal(lines.line1, '$345,122 (6.4%)');
+  assert.equal(lines.tone, 'low');
+  assert.equal(lines.kind, 'short');
   assert.equal(lines.line2, '$4,761,033 (required to meet 95% obligation target)');
   assert.equal(calloutLines(5374900, 345122, { narrow: true }).line2, '$4,761,033 (to 95% target)');
 
@@ -439,11 +441,14 @@ test('95% obligation callout matches the worked example and the edge cases', () 
   assert.equal(exact.met, true);
   assert.equal(exact.required, 0);
   assert.equal(calloutLines(1000, 950).line2, '95% target met');
+  assert.equal(calloutLines(1000, 950).tone, 'ok');
 
   const over = obligationCallout(1000, 1200);
   assert.equal(over.met, true);
   assert.equal(over.required, 0);
   assert.equal(over.percent.text, '120.0%');
+  assert.equal(calloutLines(1000, 1200).tone, 'low');
+  assert.equal(calloutLines(1000, 1200).line2, 'Over-executed by $200 (>110% of plan)');
 
   const under = obligationCallout(1000, 949);
   assert.equal(under.met, false);
@@ -453,7 +458,9 @@ test('95% obligation callout matches the worked example and the edge cases', () 
   assert.equal(zeroPlan.percent.text, 'N/A');
   assert.equal(zeroPlan.met, true);
   assert.equal(calloutLines(0, 10).line1, '$10 (N/A)');
-  assert.equal(calloutLines(0, 10).line2, '95% target met');
+  assert.equal(calloutLines(0, 10).line2, 'N/A');
+  assert.equal(calloutLines(0, 10).tone, '');
+  assert.equal(calloutLines(0, 10).kind, 'na');
   assert.equal(obligationCallout(0, -25).met, false);
   assert.equal(obligationCallout(0, -25).required, 25);
 
@@ -478,6 +485,48 @@ test('95% obligation callout matches the worked example and the edge cases', () 
   const filteredCum = calloutLines(filtered.cp[1], filtered.ce[1]);
   assert.equal(filteredCum.obligations, 800000 + 345122);
   assert.notEqual(filteredCum.line1, filteredCallout.line1);
+});
+
+test('callout status follows the plan-percent bands, including 141.4%', () => {
+  const plan = 100000;
+  const at = (percent) => calloutLines(plan, plan * percent / 100);
+  const expectBand = (percent, tone, kind) => {
+    const band = executionBand(percent / 100);
+    assert.equal(band.tone, tone, `${percent} tone`);
+    assert.equal(band.kind, kind, `${percent} kind`);
+    assert.equal(planExecutionTone(percent / 100), tone);
+    assert.equal(at(percent).tone, tone);
+    assert.equal(at(percent).kind, kind);
+  };
+  expectBand(89.99, 'low', 'short');
+  expectBand(90, 'mid', 'short');
+  expectBand(94.99, 'mid', 'short');
+  expectBand(95, 'ok', 'met');
+  expectBand(105, 'ok', 'met');
+  expectBand(105.01, 'mid', 'over105');
+  expectBand(110, 'mid', 'over105');
+  expectBand(110.01, 'low', 'over110');
+  expectBand(141.4, 'low', 'over110');
+
+  assert.match(at(89.99).line2, /required to meet 95% obligation target/);
+  assert.match(at(90).line2, /required to meet 95% obligation target/);
+  assert.match(at(94.99).line2, /required to meet 95% obligation target/);
+  assert.equal(at(95).line2, '95% target met');
+  assert.equal(at(105).line2, '95% target met');
+  assert.equal(at(105.01).line2, `Over plan by ${formatMoney(at(105.01).overAmount)} (>105%)`);
+  assert.equal(at(110).line2, `Over plan by ${formatMoney(at(110).overAmount)} (>105%)`);
+  assert.equal(at(110.01).line2, `Over-executed by ${formatMoney(at(110.01).overAmount)} (>110% of plan)`);
+  assert.match(at(105.01).line2, /^Over plan by \$/);
+  assert.match(at(110.01).line2, /^Over-executed by \$/);
+
+  const reported = calloutLines(245000, 346414);
+  assert.equal(reported.percent.text, '141.4%');
+  assert.equal(reported.tone, 'low');
+  assert.equal(reported.kind, 'over110');
+  assert.equal(reported.line1, '$346,414 (141.4%)');
+  assert.equal(reported.line2, 'Over-executed by $101,414 (>110% of plan)');
+  assert.equal(reported.overAmount, 346414 - 245000);
+  assert.notEqual(reported.line2, '95% target met');
 });
 
 test('plan percent colors use unrounded bands and flag over-execution', () => {

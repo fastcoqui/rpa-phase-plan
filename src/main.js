@@ -339,28 +339,47 @@ function figuresTable(metrics, pbg) {
   </tbody></table></div>`;
 }
 
-function requiredSummary(planAmount, oblAmount, basis) {
-  const callout = calloutLines(planAmount, oblAmount, { narrow: false });
-  const tone = callout.met ? 'met' : 'need';
-  const text = callout.met ? '95% target met' : formatMoney(callout.required);
-  return `<span>Required to meet 95% <b class="${tone}" data-required="${callout.required}" data-callout-met="${callout.met}" data-callout-line1="${esc(callout.line1)}" data-callout-line2="${esc(callout.line2)}">${text}</b> <small>${basis}</small></span>`;
+const BAND_COLOR = { ok: '#047857', mid: '#b45309', low: '#b91c1c' };
+
+function bandColor(tone) {
+  return BAND_COLOR[tone] || '#475569';
+}
+
+function readoutBasis(kind, shortBasis) {
+  if (kind === 'na') return 'N/A because the plan is zero';
+  if (kind === 'met') return 'within 95% to 105% of plan';
+  if (kind === 'over105' || kind === 'over110') return 'obligations minus plan';
+  return shortBasis;
+}
+
+function requiredSummary(callout, shortBasis) {
+  const tone = callout.tone || 'na';
+  return `<span>Required to meet 95% <b class="band band-${tone}" data-required="${callout.required}" data-callout-tone="${esc(tone)}" data-callout-kind="${esc(callout.kind)}" data-callout-line1="${esc(callout.line1)}" data-callout-line2="${esc(callout.line2)}">${esc(callout.line2)}</b> <small>${esc(readoutBasis(callout.kind, shortBasis))}</small></span>`;
+}
+
+function execReadout(callout, text, extra) {
+  const tone = callout.tone || 'na';
+  const attr = extra ? ` ${extra}` : '';
+  return `<b class="band band-${tone}"${attr}>${esc(text)}</b>`;
 }
 
 function chartSummary(plan, exe, pbg, mode) {
   if (mode === 'month') {
     const month = monthFigures(plan, exe, ui.through);
+    const callout = calloutLines(month.plan, month.obligations);
     const label = `${MONTHS_LONG[month.index]} (${MONTHS[month.index]})`;
     const basis = month.execOfPlan.value == null
       ? `N/A because the ${MONTHS[month.index]} plan is zero`
       : `denominator: ${MONTHS[month.index]} plan`;
-    return `<span>${label} plan <b data-month-plan="${month.plan}">${formatMoney(month.plan)}</b></span><span>${label} obligations <b data-month-obl="${month.obligations}">${formatMoney(month.obligations)}</b></span><span>Actual − plan <b data-month-var="${month.actualMinusPlan}">${formatMoney(month.actualMinusPlan)}</b> <small>${label} obligations minus ${label} plan</small></span><span>Execution % of plan <b data-month-exec="${month.execOfPlan.text}">${month.execOfPlan.text}</b> <small>${basis}</small></span>${requiredSummary(month.plan, month.obligations, `0.95 × ${MONTHS[month.index]} plan − ${MONTHS[month.index]} obligations`)}`;
+    return `<span>${label} plan <b data-month-plan="${month.plan}">${formatMoney(month.plan)}</b></span><span>${label} obligations <b data-month-obl="${month.obligations}">${formatMoney(month.obligations)}</b></span><span>Actual − plan <b data-month-var="${month.actualMinusPlan}">${formatMoney(month.actualMinusPlan)}</b> <small>${label} obligations minus ${label} plan</small></span><span>Execution % of plan ${execReadout(callout, month.execOfPlan.text, `data-month-exec="${month.execOfPlan.text}"`)} <small>${basis}</small></span>${requiredSummary(callout, `0.95 × ${MONTHS[month.index]} plan − ${MONTHS[month.index]} obligations`)}`;
   }
   const through = ui.through;
   const cumPlan = plan[through];
   const cumExe = exe[through];
+  const callout = calloutLines(cumPlan, cumExe);
   const exec = ratio(cumExe, cumPlan);
   const ofPbg = ratio(cumExe, pbg);
-  return `<span>Cumulative plan <b>${formatMoney(cumPlan)}</b></span><span>Cumulative obligations <b>${formatMoney(cumExe)}</b></span><span>Actual − plan <b>${formatMoney(cumExe - cumPlan)}</b></span><span>Execution % of plan <b>${exec.text}</b> <small>denominator: cumulative plan through ${MONTHS[through]}</small></span><span>Execution % of PBG <b>${ofPbg.text}</b> <small>denominator: full-year PBG</small></span>${requiredSummary(cumPlan, cumExe, `0.95 × cumulative plan − cumulative obligations through ${MONTHS[through]}`)}`;
+  return `<span>Cumulative plan <b>${formatMoney(cumPlan)}</b></span><span>Cumulative obligations <b>${formatMoney(cumExe)}</b></span><span>Actual − plan <b>${formatMoney(cumExe - cumPlan)}</b></span><span>Execution % of plan ${execReadout(callout, exec.text)} <small>denominator: cumulative plan through ${MONTHS[through]}</small></span><span>Execution % of PBG <b>${ofPbg.text}</b> <small>denominator: full-year PBG</small></span>${requiredSummary(callout, `0.95 × cumulative plan − cumulative obligations through ${MONTHS[through]}`)}`;
 }
 
 function axisCeiling(series) {
@@ -392,21 +411,27 @@ function makeCalloutPlugin(plan, exe, index) {
       const ctx = chart.ctx;
       const font1 = '700 12px Inter, system-ui, Segoe UI, sans-serif';
       const font2 = '600 11px Inter, system-ui, Segoe UI, sans-serif';
+      const measureLine1 = () => {
+        ctx.font = font1;
+        const amount = formatMoney(lines.obligations);
+        const pct = ` (${lines.percent.text})`;
+        return { amount, pct, width: ctx.measureText(amount).width + ctx.measureText(pct).width };
+      };
       ctx.save();
-      ctx.font = font1;
-      let width1 = ctx.measureText(lines.line1).width;
+      let line1 = measureLine1();
       ctx.font = font2;
       let width2 = ctx.measureText(lines.line2).width;
       const area = chart.chartArea;
-      if (!narrow && Math.max(width1, width2) > (area.right - area.left) * 0.92) {
+      if (!narrow && Math.max(line1.width, width2) > (area.right - area.left) * 0.92) {
         narrow = true;
         lines = calloutLines(planned, actual, { narrow: true });
+        line1 = measureLine1();
         ctx.font = font2;
         width2 = ctx.measureText(lines.line2).width;
       }
       const padX = 7;
       const padY = 5;
-      const boxW = Math.min(Math.max(width1, width2) + padX * 2, area.right - area.left - 4);
+      const boxW = Math.min(Math.max(line1.width, width2) + padX * 2, area.right - area.left - 4);
       const boxH = 12 + 11 + 3 + padY * 2;
       let x = bar.x - boxW / 2;
       if (x < area.left + 2) x = area.left + 2;
@@ -414,21 +439,26 @@ function makeCalloutPlugin(plan, exe, index) {
       const anchorY = Math.min(bar.y, point ? point.y : bar.y);
       let y = anchorY - boxH - 6;
       if (y < 2) y = 2;
+      const color = bandColor(lines.tone);
       ctx.fillStyle = 'rgba(255,255,255,0.94)';
-      ctx.strokeStyle = lines.met ? '#047857' : '#1d4ed8';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, boxW, boxH, 6);
       else ctx.rect(x, y, boxW, boxH);
       ctx.fill();
       ctx.stroke();
-      ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.font = font1;
+      const textX = x + (boxW - line1.width) / 2;
+      ctx.textAlign = 'left';
       ctx.fillStyle = '#0f172a';
-      ctx.fillText(lines.line1, x + boxW / 2, y + padY);
+      ctx.fillText(line1.amount, textX, y + padY);
+      ctx.fillStyle = color;
+      ctx.fillText(line1.pct, textX + ctx.measureText(line1.amount).width, y + padY);
       ctx.font = font2;
-      ctx.fillStyle = lines.met ? '#047857' : '#1d4ed8';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = color;
       ctx.fillText(lines.line2, x + boxW / 2, y + padY + 15);
       ctx.restore();
       const canvas = chart.canvas;
