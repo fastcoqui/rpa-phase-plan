@@ -3,11 +3,12 @@ import Chart from 'chart.js/auto';
 import PROGRAMS from './data/programs.json';
 import {
   MONTHS, MONTHS_LONG, QTR, SL, LEGACY_STORAGE_KEY,
-  appropriation, clearActiveEntries, commitAmount, fiscalThroughIndex, formatMoney,
-  includedPrograms, legacyExclusion, migrateState, narrativeFlags, num, parseAmount, periodSum,
-  monthFigures, programView, ratio, setDashboardIncluded, straightLineCumulative,
+  appropriation, applySofMonth, calloutLines, clearActiveEntries, commitAmount, fiscalThroughIndex, formatMoney,
+  includedPrograms, legacyExclusion, listSofSnapshots, loadSofSnapshot, migrateState, narrativeFlags, num, parseAmount, periodSum,
+  monthFigures, previewSofApply, programView, ratio, replaceSofWorking, setDashboardIncluded, straightLineCumulative,
   sum, sumPbg, toCsv,
 } from './model.js';
+import { buildSofTable, formatSofMoney, programMatchKey, SOF_LAYOUT } from './sof.js';
 import { createPrototypeStore, storageFacts } from './storage.js';
 
 const FACTS = storageFacts();
@@ -28,6 +29,9 @@ const ui = {
   through: fiscalThroughIndex(new Date()),
   programsOpen: false,
   programQuery: '',
+  sofPreview: null,
+  sofPreviewStamp: '',
+  sofWarnings: [],
   saveLabel: startupSaveFailed
     ? 'This browser blocked local save — Export JSON to keep a copy'
     : loaded.source === 'blank'
@@ -166,7 +170,7 @@ function render() {
     ${selectionFiltered && ui.tab !== 'dash' ? `<button type="button" id="showing-chip" class="filter-chip" title="Edit which programs the appropriation dashboard includes">Showing ${includedCount} of ${PROGRAMS.length} programs</button>` : ''}
   </section>
   <nav class="tabs" role="tablist" aria-label="Sections">
-    ${[['dash','Dashboard'],['plan','Phase plan'],['obl','Obligations'],['imb','Imbalance']].map(([id, label]) => `<button type="button" role="tab" data-t="${id}" aria-selected="${ui.tab === id}" class="${ui.tab === id ? 'on' : ''}">${label}</button>`).join('')}
+    ${[['dash','Dashboard'],['plan','Phase plan'],['obl','Obligations'],['sof','Status of Funds'],['imb','Imbalance']].map(([id, label]) => `<button type="button" role="tab" data-t="${id}" aria-selected="${ui.tab === id}" class="${ui.tab === id ? 'on' : ''}">${label}</button>`).join('')}
   </nav>
   <main id="body"></main>
   <footer>Unofficial prototype · FY27 RPA Phase-plan Studio · Entries stay in this browser until you export them · The straight-line reference is not saved into the plan.</footer>`;
@@ -177,6 +181,7 @@ function render() {
     drawDash(list);
   } else if (ui.tab === 'plan') body.innerHTML = planView(list);
   else if (ui.tab === 'obl') body.innerHTML = oblView(list);
+  else if (ui.tab === 'sof') body.innerHTML = sofView();
   else body.innerHTML = imbView(list);
   wire();
 }
@@ -258,9 +263,9 @@ function dashView(list) {
     ? `<div class="empty-approp" role="status"><p>No programs are included in this appropriation view. Open Programs and select at least one. Charts stay hidden so a zero total is not drawn as a broken scale. Saved phase plans and obligations are unchanged.</p></div>`
     : `<div class="grid2">
       <div class="card flat"><h3>Monthly · ${MONTHS_LONG[ui.through]}</h3><div class="ch"><canvas id="c-approp-m"></canvas></div><div id="s-approp-m" class="cs"></div>
-        <p class="figcap">Columns are each month's phased plan${filtered ? ' for the included programs' : ''}. The marked line is each month's obligations. The figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only. The amber tick marks that month.</p></div>
+        <p class="figcap">Columns are each month's phased plan${filtered ? ' for the included programs' : ''}. The marked line is each month's obligations. The figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only. The amber tick marks that month. The label above that column is obligations, the percent of that month's plan, and the amount still required to reach 95% of plan.</p></div>
       <div class="card flat"><h3>Cumulative</h3><div class="ch"><canvas id="c-approp-c"></canvas></div><div id="s-approp-c" class="cs"></div>
-        <p class="figcap">Bars are cumulative phased plan. The dashed line is cumulative straight-line PBG and reaches ${filtered ? "the included programs' authorized PBG" : 'authorized PBG'} in September. It is not a saved plan. The marked line is cumulative obligations.</p></div>
+        <p class="figcap">Bars are cumulative phased plan. The dashed line is cumulative straight-line PBG and reaches ${filtered ? "the included programs' authorized PBG" : 'authorized PBG'} in September. It is not a saved plan. The marked line is cumulative obligations. The label above the marked month uses cumulative plan and cumulative obligations through that month.</p></div>
     </div>
     <p class="figcap">Monthly figures for the appropriation. Cumulative columns include the month shown and every earlier month. Execution percentages use that row's cumulative plan, or the included programs' full-year authorized PBG, as the denominator. N/A means the denominator is zero.</p>
     ${figuresTable(metrics, metrics.pbg)}`;
@@ -301,7 +306,7 @@ function drillView(program, includedCodes) {
     <div class="kpis inset">${metricCards(metrics, `${program.code} only.`, 'drill')}</div>
     <div class="grid2">
       <div class="card flat"><h3>Monthly · ${MONTHS_LONG[ui.through]}</h3><div class="ch"><canvas id="c-prog-m"></canvas></div><div id="s-prog-m" class="cs"></div>
-        <p class="figcap">Figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only.</p></div>
+        <p class="figcap">Figures under this chart are for ${MONTHS_LONG[ui.through]} (${MONTHS[ui.through]}) only. The label above that column is this program's obligations, percent of plan, and the amount still required to reach 95% of plan.</p></div>
       <div class="card flat"><h3>Cumulative</h3><div class="ch"><canvas id="c-prog-c"></canvas></div><div id="s-prog-c" class="cs"></div></div>
     </div>
   </section>`;
@@ -334,6 +339,13 @@ function figuresTable(metrics, pbg) {
   </tbody></table></div>`;
 }
 
+function requiredSummary(planAmount, oblAmount, basis) {
+  const callout = calloutLines(planAmount, oblAmount, { narrow: false });
+  const tone = callout.met ? 'met' : 'need';
+  const text = callout.met ? '95% target met' : formatMoney(callout.required);
+  return `<span>Required to meet 95% <b class="${tone}" data-required="${callout.required}" data-callout-met="${callout.met}" data-callout-line1="${esc(callout.line1)}" data-callout-line2="${esc(callout.line2)}">${text}</b> <small>${basis}</small></span>`;
+}
+
 function chartSummary(plan, exe, pbg, mode) {
   if (mode === 'month') {
     const month = monthFigures(plan, exe, ui.through);
@@ -341,14 +353,92 @@ function chartSummary(plan, exe, pbg, mode) {
     const basis = month.execOfPlan.value == null
       ? `N/A because the ${MONTHS[month.index]} plan is zero`
       : `denominator: ${MONTHS[month.index]} plan`;
-    return `<span>${label} plan <b data-month-plan="${month.plan}">${formatMoney(month.plan)}</b></span><span>${label} obligations <b data-month-obl="${month.obligations}">${formatMoney(month.obligations)}</b></span><span>Actual − plan <b data-month-var="${month.actualMinusPlan}">${formatMoney(month.actualMinusPlan)}</b> <small>${label} obligations minus ${label} plan</small></span><span>Execution % of plan <b data-month-exec="${month.execOfPlan.text}">${month.execOfPlan.text}</b> <small>${basis}</small></span>`;
+    return `<span>${label} plan <b data-month-plan="${month.plan}">${formatMoney(month.plan)}</b></span><span>${label} obligations <b data-month-obl="${month.obligations}">${formatMoney(month.obligations)}</b></span><span>Actual − plan <b data-month-var="${month.actualMinusPlan}">${formatMoney(month.actualMinusPlan)}</b> <small>${label} obligations minus ${label} plan</small></span><span>Execution % of plan <b data-month-exec="${month.execOfPlan.text}">${month.execOfPlan.text}</b> <small>${basis}</small></span>${requiredSummary(month.plan, month.obligations, `0.95 × ${MONTHS[month.index]} plan − ${MONTHS[month.index]} obligations`)}`;
   }
   const through = ui.through;
   const cumPlan = plan[through];
   const cumExe = exe[through];
   const exec = ratio(cumExe, cumPlan);
   const ofPbg = ratio(cumExe, pbg);
-  return `<span>Cumulative plan <b>${formatMoney(cumPlan)}</b></span><span>Cumulative obligations <b>${formatMoney(cumExe)}</b></span><span>Actual − plan <b>${formatMoney(cumExe - cumPlan)}</b></span><span>Execution % of plan <b>${exec.text}</b> <small>denominator: cumulative plan through ${MONTHS[through]}</small></span><span>Execution % of PBG <b>${ofPbg.text}</b> <small>denominator: full-year PBG</small></span>`;
+  return `<span>Cumulative plan <b>${formatMoney(cumPlan)}</b></span><span>Cumulative obligations <b>${formatMoney(cumExe)}</b></span><span>Actual − plan <b>${formatMoney(cumExe - cumPlan)}</b></span><span>Execution % of plan <b>${exec.text}</b> <small>denominator: cumulative plan through ${MONTHS[through]}</small></span><span>Execution % of PBG <b>${ofPbg.text}</b> <small>denominator: full-year PBG</small></span>${requiredSummary(cumPlan, cumExe, `0.95 × cumulative plan − cumulative obligations through ${MONTHS[through]}`)}`;
+}
+
+function axisCeiling(series) {
+  let peak = 0;
+  for (const values of series) {
+    if (!values) continue;
+    for (const value of values) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > peak) peak = n;
+    }
+  }
+  if (peak <= 0) return undefined;
+  return peak * 1.45;
+}
+
+function makeCalloutPlugin(plan, exe, index) {
+  return {
+    id: 'obligationCallout',
+    afterDraw(chart) {
+      const planned = plan[index];
+      const actual = exe[index];
+      let narrow = window.innerWidth < 640;
+      let lines = calloutLines(planned, actual, { narrow });
+      const barIndex = chart.data.datasets.findIndex(dataset => dataset.label === 'Phased plan');
+      const lineIndex = chart.data.datasets.findIndex(dataset => dataset.label === 'Obligations');
+      const bar = chart.getDatasetMeta(barIndex)?.data?.[index];
+      const point = lineIndex >= 0 ? chart.getDatasetMeta(lineIndex)?.data?.[index] : null;
+      if (!bar) return;
+      const ctx = chart.ctx;
+      const font1 = '700 12px Inter, system-ui, Segoe UI, sans-serif';
+      const font2 = '600 11px Inter, system-ui, Segoe UI, sans-serif';
+      ctx.save();
+      ctx.font = font1;
+      let width1 = ctx.measureText(lines.line1).width;
+      ctx.font = font2;
+      let width2 = ctx.measureText(lines.line2).width;
+      const area = chart.chartArea;
+      if (!narrow && Math.max(width1, width2) > (area.right - area.left) * 0.92) {
+        narrow = true;
+        lines = calloutLines(planned, actual, { narrow: true });
+        ctx.font = font2;
+        width2 = ctx.measureText(lines.line2).width;
+      }
+      const padX = 7;
+      const padY = 5;
+      const boxW = Math.min(Math.max(width1, width2) + padX * 2, area.right - area.left - 4);
+      const boxH = 12 + 11 + 3 + padY * 2;
+      let x = bar.x - boxW / 2;
+      if (x < area.left + 2) x = area.left + 2;
+      if (x + boxW > area.right - 2) x = area.right - 2 - boxW;
+      const anchorY = Math.min(bar.y, point ? point.y : bar.y);
+      let y = anchorY - boxH - 6;
+      if (y < 2) y = 2;
+      ctx.fillStyle = 'rgba(255,255,255,0.94)';
+      ctx.strokeStyle = lines.met ? '#047857' : '#1d4ed8';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, boxW, boxH, 6);
+      else ctx.rect(x, y, boxW, boxH);
+      ctx.fill();
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.font = font1;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(lines.line1, x + boxW / 2, y + padY);
+      ctx.font = font2;
+      ctx.fillStyle = lines.met ? '#047857' : '#1d4ed8';
+      ctx.fillText(lines.line2, x + boxW / 2, y + padY + 15);
+      ctx.restore();
+      const canvas = chart.canvas;
+      if (canvas) {
+        const base = canvas.getAttribute('data-callout-base') || canvas.getAttribute('aria-label') || '';
+        if (!canvas.getAttribute('data-callout-base')) canvas.setAttribute('data-callout-base', base);
+        canvas.setAttribute('aria-label', `${base} Selected month ${MONTHS[index]}: ${lines.line1}. ${lines.line2}.`);
+      }
+    },
+  };
 }
 
 function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) {
@@ -366,7 +456,7 @@ function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) 
     { type: 'line', label: 'Obligations', data: exe.slice(), borderColor: '#b45309', backgroundColor: '#f59e0b', pointRadius: 4, pointHoverRadius: 6, borderWidth: 2.5, tension: 0.15, order: 1 },
   );
   charts.push(new Chart(canvas, {
-    plugins: [makeThroughPlugin(ui.through)],
+    plugins: [makeThroughPlugin(ui.through), makeCalloutPlugin(plan, exe, ui.through)],
     data: {
       labels: MONTHS,
       datasets,
@@ -375,6 +465,7 @@ function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) 
       responsive: true,
       maintainAspectRatio: false,
       animation: reduce ? false : undefined,
+      layout: { padding: { top: 8 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 12 } },
@@ -397,6 +488,8 @@ function drawCombo(canvasId, summaryId, { pbgRef, plan, exe, pbg, mode, aria }) 
       },
       scales: {
         y: {
+          beginAtZero: true,
+          suggestedMax: axisCeiling([plan, exe, pbgRef]) || undefined,
           ticks: {
             callback: (value) => {
               const abs = Math.abs(value);
@@ -588,6 +681,191 @@ function imbView(list) {
     </div>`;
 }
 
+function sofIo() {
+  return import('./sof-io.js');
+}
+
+function todayIso() {
+  const date = new Date();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function sofAsOf() {
+  return S.sof?.asOf || todayIso();
+}
+
+function sofStamp() {
+  return JSON.stringify({ asOf: sofAsOf(), rows: S.sof?.rows || {}, extras: S.sof?.extras || [] });
+}
+
+function ensureSof() {
+  if (!S.sof || typeof S.sof !== 'object') S.sof = { rows: {}, extras: [], snapshots: {} };
+  if (!S.sof.rows || typeof S.sof.rows !== 'object') S.sof.rows = {};
+  if (!Array.isArray(S.sof.extras)) S.sof.extras = [];
+  if (!S.sof.snapshots || typeof S.sof.snapshots !== 'object') S.sof.snapshots = {};
+  return S.sof;
+}
+
+function sofRowRecord(key) {
+  const sof = ensureSof();
+  if (key.startsWith('extra:')) {
+    const index = Number(key.slice(6));
+    return Number.isInteger(index) ? sof.extras[index] || null : null;
+  }
+  if (!sof.rows[key]) sof.rows[key] = { obligations: 0, commitments: 0, comments: '', obligationsSet: false };
+  return sof.rows[key];
+}
+
+function sofInputValue(value, showZero) {
+  const n = num(value);
+  if (!showZero && n === 0) return '';
+  return String(Math.round(n * 100) / 100);
+}
+
+function sofMoneyCell(value) {
+  if (value == null || value === '') return '<td></td>';
+  const n = num(value);
+  return `<td class="${n < 0 ? 'neg' : ''}">${esc(formatSofMoney(n))}</td>`;
+}
+
+function sofPctCell(result, tone) {
+  const cls = tone ? `pct ${tone}` : 'pct';
+  return `<td class="${cls}">${esc(result.text)}</td>`;
+}
+
+function sofPreviewModel(table) {
+  const cumulative = {};
+  const unmatched = [];
+  for (const line of table.lines) {
+    if (line.kind !== 'data') continue;
+    if (line.programCode && line.obligationsSet) cumulative[line.programCode] = line.obligations;
+    if (line.unmatched && (line.obligationsSet || line.extra)) {
+      unmatched.push({
+        label: `${line.mdep}${line.suffix ? ` ${line.suffix}` : ''} — ${line.name}`,
+        cumulative: line.obligations,
+      });
+    }
+  }
+  return {
+    monthIndex: table.monthIndex,
+    rows: previewSofApply(PROGRAMS, S, cumulative, table.monthIndex),
+    unmatched,
+  };
+}
+
+function sofView() {
+  const asOf = sofAsOf();
+  const table = buildSofTable(PROGRAMS, S, asOf);
+  const snapshots = listSofSnapshots(S);
+  const fresh = ui.sofPreview && ui.sofPreviewStamp === sofStamp();
+  const preview = fresh ? ui.sofPreview : null;
+  const warning = (ui.sofWarnings || []).slice(0, 6);
+  const rows = table.lines.map(line => {
+    if (line.kind === 'gap') return '<tr class="sof-gap"><td colspan="22"></td></tr>';
+    if (line.kind === 'subtotal') {
+      return `<tr class="roll sof-total" data-sof-total="${esc(line.id)}"><th colspan="6">${esc(line.label)}</th>
+        ${sofMoneyCell(line.pbg)}${sofMoneyCell(line.plan)}${sofMoneyCell(line.allotment)}${sofMoneyCell(line.obligations)}
+        ${sofMoneyCell(line.commitments)}${sofMoneyCell(line.totalExecution)}${sofMoneyCell(line.availablePbg)}${sofMoneyCell(line.availableAllotment)}
+        ${sofPctCell(line.oblVsPlan, line.tone)}${sofPctCell(line.oblVsPbg, '')}${sofPctCell(line.execVsPbg, '')}
+        <td></td>${sofMoneyCell(line.julTarget)}${sofMoneyCell(line.obligationToJul)}${sofMoneyCell(line.plan95)}${sofMoneyCell(line.variance)}</tr>`;
+    }
+    const flag = line.unmatched ? ' <span class="chip warn">Unmatched</span>' : '';
+    const allotmentCell = line.isAnchor
+      ? `<td class="in"><input data-sof="allot" data-sof-key="${esc(line.key)}" data-sof-group="${esc(line.groupId)}" value="${esc(sofInputValue(line.allotment, line.allotment != null))}" inputmode="decimal" autocomplete="off" aria-label="${esc(line.key)} allotment"></td>`
+      : '<td class="sof-span" title="Included in this allotment group"></td>';
+    const available = line.isAnchor ? sofMoneyCell(line.availableAllotment) : '<td></td>';
+    const pbgCell = line.programCode
+      ? sofMoneyCell(line.pbg)
+      : `<td class="in"><input data-sof="pbg" data-sof-key="${esc(line.key)}" value="${esc(sofInputValue(line.pbg, true))}" inputmode="decimal" autocomplete="off" aria-label="${esc(line.key)} PBG"></td>`;
+    const planCell = line.programCode
+      ? sofMoneyCell(line.plan)
+      : `<td class="in"><input data-sof="plan" data-sof-key="${esc(line.key)}" value="${esc(sofInputValue(line.plan, true))}" inputmode="decimal" autocomplete="off" aria-label="${esc(line.key)} plan"></td>`;
+    return `<tr class="${line.unmatched ? 'unmatched' : ''}" data-sof-row="${esc(line.key)}">
+      <th><span class="sof-id">${esc(line.mdep)}${line.suffix ? ` ${esc(line.suffix)}` : ''}</span>${flag}<small>${esc(line.name)}</small></th>
+      <td>${esc(line.pm)}</td><td>${esc(line.sag)}</td><td>${esc(line.mdep)}</td><td>${esc(line.suffix)}</td><td>${esc(line.name)}</td>
+      ${pbgCell}${planCell}${allotmentCell}
+      <td class="in"><input data-sof="obl" data-sof-key="${esc(line.key)}" value="${esc(sofInputValue(line.obligations, line.obligationsSet))}" inputmode="decimal" autocomplete="off" aria-label="${esc(line.key)} cumulative obligations"></td>
+      <td class="in"><input data-sof="commit" data-sof-key="${esc(line.key)}" value="${esc(sofInputValue(line.commitments, line.commitments !== 0))}" inputmode="decimal" autocomplete="off" aria-label="${esc(line.key)} commitments"></td>
+      ${sofMoneyCell(line.totalExecution)}${sofMoneyCell(line.availablePbg)}${available}
+      ${sofPctCell(line.oblVsPlan, line.tone)}${sofPctCell(line.oblVsPbg, '')}${sofPctCell(line.execVsPbg, '')}
+      <td class="in sof-comment"><input data-sof="comment" data-sof-key="${esc(line.key)}" value="${esc(line.comments)}" autocomplete="off" aria-label="${esc(line.key)} comments"></td>
+      ${sofMoneyCell(line.julTarget)}${sofMoneyCell(line.obligationToJul)}${sofMoneyCell(line.plan95)}${sofMoneyCell(line.variance)}
+    </tr>`;
+  }).join('');
+  const footer = table.footer.rows.map(item => `<div class="sof-target"><span>${esc(item.label)}</span><b>${esc(formatSofMoney(item.target))}</b><span>To meet target:</span><b class="${item.toMeet < 0 ? 'neg' : ''}">${esc(formatSofMoney(item.toMeet))}</b>${item.note ? `<em>${esc(item.note)}</em>` : ''}</div>`).join('');
+  const previewHtml = preview ? sofPreviewHtml(preview, table) : (ui.sofPreview ? '<p class="filter-banner">This preview is out of date. Update the preview before applying.</p>' : '');
+  const snapHtml = snapshots.length ? `<ul class="sof-snaps">${snapshots.map(snap => `<li><span>${esc(MONTHS_LONG[snap.month])} snapshot${snap.asOf ? ` · as of ${esc(snap.asOf)}` : ''} · ${snap.programs} obligation rows</span> <button type="button" class="ghost" data-load-snap="${snap.month}">Load</button></li>`).join('')}</ul>` : '<p class="hint">No snapshot stored yet. Apply a report to keep it.</p>';
+  return `<div class="card sof-card"><div class="card-h"><div>
+      <p class="eyebrow">Status of Funds</p>
+      <h2>RPA Status of Funds</h2>
+      <p class="hint">Obligations and commitments here are cumulative fiscal-year-to-date as of the report date. PLAN for a matched program is the phase plan cumulative through ${esc(table.monthLabel)}. PBG is that program's authorized PBG. TOTAL EXECUTION is obligations plus commitments. AVAILABLE PBG is PBG minus total execution. AVAILABLE ALLOTMENT is the group allotment minus the obligations in that group. EOM JUL 80% target is PBG × 0.8. The 95% plan target is PLAN × 0.95, and variance is that target minus obligations.</p>
+    </div></div>
+    ${table.outside ? `<p class="filter-banner">That date is outside FY27 (October 2026–September 2027). Figures use ${esc(table.monthLabel)}.</p>` : ''}
+    <div class="sof-tools">
+      <label class="month-pick">As of
+        <input type="date" id="sof-asof" value="${esc(asOf)}" aria-label="Status of Funds as of date">
+      </label>
+      <label class="btn sof-file">Import .xlsx / .csv<input type="file" id="sof-file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
+      <button type="button" id="sof-export">Export .xlsx</button>
+      <button type="button" id="sof-preview" class="ghost">Preview apply to obligations</button>
+    </div>
+    ${warning.length ? `<ul class="sof-warnings">${warning.map(item => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}
+    <details class="prov"><summary>Paste rows</summary>
+      <p class="hint">Paste a block copied from the template, including the header row, or a CSV in the same columns.</p>
+      <textarea id="sof-paste" aria-label="Paste Status of Funds rows"></textarea>
+      <button type="button" id="sof-paste-load" class="ghost">Load pasted rows</button>
+    </details>
+    <div id="sof-preview-panel">${previewHtml}</div>
+    <p class="hint sof-legend"><span class="pct low">Under 50% of plan</span> · <span class="pct mid">50% up to 95%</span> · <span class="pct ok">95% or more</span> · N/A means the plan is zero. An unmatched row is not one of the 31 programs. It stays on this tab and is not written into monthly obligations.</p>
+    <div class="tw sof-wrap"><table class="sof-table"><thead><tr>
+      <th scope="col">Program</th><th scope="col">PM</th><th scope="col">SAG</th><th scope="col">MDEP</th><th scope="col">Suffix</th><th scope="col">Description</th>
+      <th scope="col">PBG</th><th scope="col">PLAN</th><th scope="col">ALLOTMENT</th><th scope="col">OBLIGATIONS</th><th scope="col">COMMITMENTS</th>
+      <th scope="col">TOTAL EXECUTION</th><th scope="col">AVAILABLE PBG</th><th scope="col">AVAILABLE ALLOTMENT</th>
+      <th scope="col">% OBL vs PLAN</th><th scope="col">% OBL vs PBG</th><th scope="col">% EXEC vs PBG</th>
+      <th scope="col">COMMENTS</th><th scope="col">EOM JUL 80% Target</th><th scope="col">Obligation to meet target</th>
+      <th scope="col">95% PLAN TARGET</th><th scope="col">VARIANCE</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="sof-footer" aria-label="Targets versus base total obligations">
+      <h3>Targets vs base total obligations</h3>
+      <p class="hint">95%, 100%, and 105% of BASE TOTAL plan, compared with BASE TOTAL obligations. The 105% line is the amount not to exceed.</p>
+      ${footer}
+    </div>
+    <h3>Stored snapshots</h3>
+    <p class="hint">Each apply keeps the cumulative report for that fiscal month. Loading a snapshot brings it back to this sheet. Applying it again rewrites that month, and later months that already have a snapshot are re-derived.</p>
+    ${snapHtml}
+  </div>`;
+}
+
+function sofPreviewHtml(preview, table) {
+  const month = MONTHS_LONG[preview.monthIndex];
+  const body = preview.rows.map(row => `<tr class="${row.deobligation ? 'deobl' : ''}" data-preview="${esc(row.code)}">
+      <th>${esc(row.code)} <small>${esc(row.name)}</small></th>
+      <td>${esc(formatSofMoney(row.cumulative))}</td>
+      <td>${esc(formatSofMoney(row.prior))}</td>
+      <td class="${row.derived < 0 ? 'neg' : ''}">${esc(formatSofMoney(row.derived))}</td>
+      <td>${row.deobligation ? 'cumulative decreased — check de-obligation' : ''}</td>
+    </tr>`).join('');
+  const unmatched = preview.unmatched.map(row => `<tr class="unmatched">
+      <th>${esc(row.label)}</th>
+      <td>${esc(formatSofMoney(row.cumulative))}</td>
+      <td>—</td><td>—</td>
+      <td>Unmatched — not applied to obligations</td>
+    </tr>`).join('');
+  const count = preview.rows.length;
+  const flagged = preview.rows.filter(row => row.deobligation).length;
+  return `<section class="sof-preview" aria-label="Obligation apply preview">
+    <h3>Preview — ${esc(month)} monthly obligations</h3>
+    <p class="hint">Monthly obligation = cumulative SOF − obligations already recorded for earlier FY27 months. ${esc(month)} is not part of that prior total, so confirming replaces this month's figure. ${count} matched program${count === 1 ? '' : 's'}.${flagged ? ` ${flagged} flagged because the cumulative total is below prior months.` : ''}</p>
+    <div class="tw"><table><thead><tr>
+      <th scope="col">Program</th><th scope="col">Cumulative SOF</th><th scope="col">Prior months total</th><th scope="col">Derived month amount</th><th scope="col">Flag</th>
+    </tr></thead><tbody>${body}${unmatched}${count || preview.unmatched.length ? '' : '<tr><td colspan="5">Nothing to apply yet. Enter obligations or import a report.</td></tr>'}</tbody></table></div>
+    <button type="button" id="sof-confirm">Confirm apply to obligations</button>
+    <p class="hint">Confirm writes these monthly amounts into the phase-plan execution rows and the dashboard. Unmatched rows stay on this tab only.</p>
+  </section>`;
+}
+
 function assignAmount(el, amount) {
   const key = el.dataset.k;
   const index = +el.dataset.i;
@@ -719,6 +997,155 @@ function wire() {
       render();
     };
   });
+  document.querySelectorAll('input[data-sof]').forEach(el => {
+    const commit = (final) => {
+      const record = sofRowRecord(el.dataset.sofKey);
+      if (!record) return;
+      if (el.dataset.sof === 'comment') {
+        record.comments = el.value.slice(0, 500);
+        persist();
+        return;
+      }
+      const parsed = final ? commitAmount(el.value) : parseAmount(el.value);
+      if (parsed == null) return;
+      if (el.dataset.sof === 'obl') {
+        record.obligations = parsed;
+        record.obligationsSet = true;
+      } else if (el.dataset.sof === 'commit') record.commitments = parsed;
+      else if (el.dataset.sof === 'pbg') record.pbg = parsed;
+      else if (el.dataset.sof === 'plan') record.plan = parsed;
+      else if (el.dataset.sof === 'allot') {
+        if (String(el.value).trim() === '') delete record.allotment;
+        else record.allotment = parsed;
+        const group = el.dataset.sofGroup;
+        const block = SOF_LAYOUT.find(item => item.id === group);
+        if (block && block.rows) {
+          for (const def of block.rows) {
+            const key = programMatchKey(def.mdep, def.suffix);
+            if (key !== el.dataset.sofKey && S.sof?.rows?.[key]) delete S.sof.rows[key].allotment;
+          }
+        }
+      }
+      if (!S.sof.asOf) S.sof.asOf = sofAsOf();
+      persist();
+    };
+    el.oninput = () => commit(false);
+    el.onchange = () => {
+      commit(true);
+      ui.sofPreview = null;
+      render();
+    };
+  });
+  const sofAsOfInput = $('sof-asof');
+  if (sofAsOfInput) {
+    sofAsOfInput.onchange = () => {
+      ensureSof().asOf = sofAsOfInput.value;
+      ui.sofPreview = null;
+      persist();
+      render();
+    };
+  }
+  const sofFile = $('sof-file');
+  if (sofFile) {
+    sofFile.onchange = async (event) => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        const { parseSofTable } = await sofIo();
+        const name = file.name.toLowerCase();
+        const parsed = (name.endsWith('.csv') || (file.type && file.type.includes('csv')))
+          ? parseSofTable(await file.text())
+          : parseSofTable(await file.arrayBuffer());
+        replaceSofWorking(S, parsed);
+        ui.sofWarnings = parsed.warnings || [];
+        ui.sofPreview = null;
+        persist();
+        ui.saveLabel = `Loaded Status of Funds${parsed.asOf ? ` as of ${parsed.asOf}` : ''}`;
+        render();
+      } catch (error) {
+        ui.saveLabel = 'Status of Funds import failed — this browser was not changed';
+        const status = document.getElementById('save-state');
+        if (status) status.textContent = ui.saveLabel;
+        alert(error instanceof Error ? error.message : 'That Status of Funds file could not be read. This browser was not changed.');
+      }
+    };
+  }
+  const sofPaste = $('sof-paste-load');
+  if (sofPaste) {
+    sofPaste.onclick = async () => {
+      const text = $('sof-paste') ? $('sof-paste').value : '';
+      try {
+        const { parseSofTable } = await sofIo();
+        const parsed = parseSofTable(text);
+        replaceSofWorking(S, parsed);
+        ui.sofWarnings = parsed.warnings || [];
+        ui.sofPreview = null;
+        persist();
+        ui.saveLabel = `Loaded pasted Status of Funds${parsed.asOf ? ` as of ${parsed.asOf}` : ''}`;
+        render();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Those rows could not be read. This browser was not changed.');
+      }
+    };
+  }
+  const sofExport = $('sof-export');
+  if (sofExport) {
+    sofExport.onclick = async () => {
+      const { sofToArrayBuffer } = await sofIo();
+      const table = buildSofTable(PROGRAMS, S, sofAsOf());
+      const bytes = sofToArrayBuffer(table);
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `RPA_Status_of_Funds_${table.asOf || 'fy27'}.xlsx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+  }
+  const sofPreviewBtn = $('sof-preview');
+  if (sofPreviewBtn) {
+    sofPreviewBtn.onclick = () => {
+      const table = buildSofTable(PROGRAMS, S, sofAsOf());
+      ui.sofPreview = sofPreviewModel(table);
+      ui.sofPreviewStamp = sofStamp();
+      render();
+      const panel = document.getElementById('sof-preview-panel');
+      if (panel) panel.scrollIntoView({ block: 'start' });
+    };
+  }
+  const sofConfirm = $('sof-confirm');
+  if (sofConfirm) {
+    sofConfirm.onclick = () => {
+      if (!ui.sofPreview || ui.sofPreviewStamp !== sofStamp()) {
+        ui.sofPreview = null;
+        render();
+        return;
+      }
+      const table = buildSofTable(PROGRAMS, S, sofAsOf());
+      applySofMonth(S, PROGRAMS, {
+        monthIndex: table.monthIndex,
+        asOf: sofAsOf(),
+        rows: S.sof?.rows || {},
+        extras: S.sof?.extras || [],
+      });
+      ui.sofPreview = null;
+      ui.sofPreviewStamp = '';
+      persist();
+      ui.saveLabel = `Applied ${MONTHS[table.monthIndex]} obligations from Status of Funds`;
+      render();
+    };
+  }
+  document.querySelectorAll('[data-load-snap]').forEach(button => {
+    button.onclick = () => {
+      loadSofSnapshot(S, Number(button.dataset.loadSnap));
+      ui.sofPreview = null;
+      persist();
+      ui.saveLabel = `Loaded ${MONTHS[Number(button.dataset.loadSnap)]} Status of Funds snapshot`;
+      render();
+    };
+  });
   $('exp').onclick = () => download('fy27-rpa-studio.json', JSON.stringify(S, null, 1), 'application/json');
   $('imp').onchange = async (event) => {
     const file = event.target.files && event.target.files[0];
@@ -744,7 +1171,7 @@ function wire() {
     legacy: S.legacy,
   }, null, 1), 'application/json');
   $('reset').onclick = () => {
-    const ok = confirm('Clear plan, obligation, memo, and narrative entries in this browser? A migration backup, if present, stays in this browser and in Export JSON. Other computers are unchanged.');
+    const ok = confirm('Clear plan, obligation, Status of Funds, memo, and narrative entries in this browser? A migration backup, if present, stays in this browser and in Export JSON. Other computers are unchanged.');
     if (!ok) return;
     S = clearActiveEntries(S, PROGRAMS);
     persist();
