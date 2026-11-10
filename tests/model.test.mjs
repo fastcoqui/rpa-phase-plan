@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  LEGACY_STORAGE_KEY, STORAGE_KEY, appropriation, blankState, clearActiveEntries,
-  commitAmount, fiscalThroughIndex, formatMoney, includedPrograms, legacyExclusion, loadState,
-  migrateState, monthFigures, narrativeFlags, parseAmount, periodSum, programView, ratio,
+  LEGACY_STORAGE_KEY, STORAGE_KEY, applySofMonth, appropriation, blankState, calloutLines,
+  clearActiveEntries, commitAmount, deriveMonthlyFromCumulative, fiscalMonthFromIso, fiscalThroughIndex,
+  formatMoney, includedPrograms, legacyExclusion, loadState, migrateState, monthFigures, narrativeFlags,
+  obligationCallout, parseAmount, periodSum, previewSofApply, priorMonthsObligation, programView, ratio,
   setDashboardIncluded, straightLineCumulative, straightLineMonthly, toCsv,
 } from '../src/model.js';
 
@@ -421,4 +422,166 @@ test('dashboard inclusion filters totals and keeps every entered amount', () => 
   assert.equal(malformed.obl.AT[0], 2);
   assert.equal(malformed.notes.BA[1], 'still here');
   assert.equal(appropriation(includedPrograms(programs, malformed), malformed, 0).cumPlan, 10);
+});
+
+test('95% obligation callout matches the worked example and the edge cases', () => {
+  const worked = obligationCallout(5374900, 345122);
+  assert.equal(worked.percent.text, '6.4%');
+  assert.ok(Math.abs(worked.required - 4761033) < 0.01);
+  assert.equal(worked.met, false);
+  assert.equal(Math.abs((0.95 * 5374900) - 345122 - 4761033) < 0.01, true);
+  const lines = calloutLines(5374900, 345122);
+  assert.equal(lines.line1, '$345,122 (6.4%)');
+  assert.equal(lines.line2, '$4,761,033 (required to meet 95% obligation target)');
+  assert.equal(calloutLines(5374900, 345122, { narrow: true }).line2, '$4,761,033 (to 95% target)');
+
+  const exact = obligationCallout(1000, 950);
+  assert.equal(exact.met, true);
+  assert.equal(exact.required, 0);
+  assert.equal(calloutLines(1000, 950).line2, '95% target met');
+
+  const over = obligationCallout(1000, 1200);
+  assert.equal(over.met, true);
+  assert.equal(over.required, 0);
+  assert.equal(over.percent.text, '120.0%');
+
+  const under = obligationCallout(1000, 949);
+  assert.equal(under.met, false);
+  assert.ok(Math.abs(under.required - 1) < 0.01);
+
+  const zeroPlan = obligationCallout(0, 0);
+  assert.equal(zeroPlan.percent.text, 'N/A');
+  assert.equal(zeroPlan.met, true);
+  assert.equal(calloutLines(0, 10).line1, '$10 (N/A)');
+  assert.equal(calloutLines(0, 10).line2, '95% target met');
+  assert.equal(obligationCallout(0, -25).met, false);
+  assert.equal(obligationCallout(0, -25).required, 25);
+
+  const state = blankState(programs);
+  state.phase.AT = months(1000000, 5374900);
+  state.obl.AT = months(800000, 345122);
+  state.phase.BA = months(0, 100);
+  state.obl.BA = months(0, 10);
+  const all = appropriation(programs, state, 1);
+  const allMonth = obligationCallout(all.plan[1], all.exe[1]);
+  assert.equal(allMonth.obligations, 345132);
+  assert.equal(all.cumPlan, 1000000 + 5374900 + 100);
+  const allCum = obligationCallout(all.cp[1], all.ce[1]);
+  assert.equal(allCum.obligations, 800000 + 345132);
+  assert.notEqual(allCum.required, allMonth.required);
+
+  setDashboardIncluded(state, programs, ['AT']);
+  const filtered = appropriation(includedPrograms(programs, state), state, 1);
+  const filteredCallout = calloutLines(filtered.plan[1], filtered.exe[1]);
+  assert.equal(filteredCallout.line1, '$345,122 (6.4%)');
+  assert.equal(filteredCallout.line2, '$4,761,033 (required to meet 95% obligation target)');
+  const filteredCum = calloutLines(filtered.cp[1], filtered.ce[1]);
+  assert.equal(filteredCum.obligations, 800000 + 345122);
+  assert.notEqual(filteredCum.line1, filteredCallout.line1);
+});
+
+test('cumulative SOF becomes the fiscal month and snapshots re-derive', () => {
+  assert.equal(fiscalMonthFromIso('2026-10-01').index, 0);
+  assert.equal(fiscalMonthFromIso('2026-10-01').outside, false);
+  assert.equal(fiscalMonthFromIso('2026-11-10').index, 1);
+  assert.equal(fiscalMonthFromIso('2027-09-30').index, 11);
+  assert.equal(fiscalMonthFromIso('2026-09-30').outside, true);
+  assert.equal(fiscalMonthFromIso('2026-09-30').index, 0);
+  assert.equal(fiscalMonthFromIso('nope').index, null);
+
+  const state = blankState(programs);
+  state.obl.AT = months(100, 50, 9);
+  state.obl.BA = months(5, 6, 7);
+  assert.equal(priorMonthsObligation(state.obl.AT, 0), 0);
+  assert.equal(deriveMonthlyFromCumulative(40, 0), 40);
+  const october = previewSofApply(programs, state, { AT: 40 }, 0);
+  assert.equal(october[0].prior, 0);
+  assert.equal(october[0].derived, 40);
+  assert.equal(october[0].deobligation, false);
+
+  applySofMonth(state, programs, {
+    monthIndex: 0,
+    asOf: '2026-10-31',
+    rows: { AT: { obligations: 100 } },
+  });
+  assert.equal(state.version, 2);
+  assert.equal(STORAGE_KEY, 'fy27-rpa-studio-v2');
+  assert.equal(state.obl.AT[0], 100);
+  assert.equal(state.obl.AT[1], 50);
+  assert.equal(state.obl.AT[2], 9);
+  assert.deepEqual(state.obl.BA, months(5, 6, 7));
+
+  const novemberPreview = previewSofApply(programs, state, { AT: 180 }, 1);
+  assert.equal(novemberPreview[0].prior, 100);
+  assert.equal(novemberPreview[0].derived, 80);
+  assert.notEqual(novemberPreview[0].derived, 180 - 150);
+  applySofMonth(state, programs, {
+    monthIndex: 1,
+    asOf: '2026-11-15',
+    rows: { AT: { obligations: 180 } },
+  });
+  assert.equal(state.obl.AT[0], 100);
+  assert.equal(state.obl.AT[1], 80);
+  assert.equal(state.obl.AT[2], 9);
+
+  applySofMonth(state, programs, {
+    monthIndex: 1,
+    asOf: '2026-11-20',
+    rows: { AT: { obligations: 300 } },
+  });
+  assert.equal(state.obl.AT[1], 200);
+  assert.equal(state.sof.snapshots['1'].asOf, '2026-11-20');
+  assert.equal(state.sof.snapshots['1'].rows.AT.obligations, 300);
+  assert.equal(state.sof.snapshots['0'].rows.AT.obligations, 100);
+  assert.equal(state.obl.BA[1], 6);
+
+  applySofMonth(state, programs, {
+    monthIndex: 1,
+    asOf: '2026-11-28',
+    rows: { AT: { obligations: 250 } },
+  });
+  assert.equal(state.obl.AT[0], 100);
+  assert.equal(state.obl.AT[1], 150);
+
+  const decreased = previewSofApply(programs, state, { AT: 70 }, 1);
+  assert.equal(decreased[0].derived, -30);
+  assert.equal(decreased[0].deobligation, true);
+  applySofMonth(state, programs, {
+    monthIndex: 1,
+    asOf: '2026-11-29',
+    rows: { AT: { obligations: 70 } },
+  });
+  assert.equal(state.obl.AT[1], -30);
+
+  applySofMonth(state, programs, {
+    monthIndex: 0,
+    asOf: '2026-10-31',
+    rows: { AT: { obligations: 80 } },
+  });
+  assert.equal(state.obl.AT[0], 80);
+  assert.equal(state.obl.AT[1], -10);
+  assert.equal(state.obl.AT[2], 9);
+  assert.equal(state.sof.snapshots['1'].rows.AT.obligations, 70);
+  assert.deepEqual(state.obl.BA, months(5, 6, 7));
+
+  const fresh = blankState(programs);
+  fresh.obl.AT = months(0, 0, 9);
+  applySofMonth(fresh, programs, { monthIndex: 0, asOf: '2026-10-05', rows: { AT: { obligations: 100 } } });
+  applySofMonth(fresh, programs, { monthIndex: 1, asOf: '2026-11-05', rows: { AT: { obligations: 250 } } });
+  assert.deepEqual(fresh.obl.AT.slice(0, 3), [100, 150, 9]);
+  applySofMonth(fresh, programs, { monthIndex: 0, asOf: '2026-10-20', rows: { AT: { obligations: 80 } } });
+  assert.deepEqual(fresh.obl.AT.slice(0, 3), [80, 170, 9]);
+
+  const saved = JSON.parse(JSON.stringify(fresh));
+  const loaded = loadState(key => key === STORAGE_KEY ? JSON.stringify(saved) : null, programs);
+  assert.equal(loaded.state.version, 2);
+  assert.equal(loaded.state.sof.asOf, '2026-10-20');
+  assert.equal(loaded.state.sof.snapshots['1'].rows.AT.obligations, 250);
+  assert.equal(loaded.state.obl.AT[1], 170);
+  assert.equal(Object.hasOwn(blankState(programs), 'sof'), false);
+
+  const cleared = clearActiveEntries(loaded.state, programs);
+  assert.equal(Object.hasOwn(cleared, 'sof'), false);
+  assert.deepEqual(cleared.obl.AT, months());
+  assert.equal(formatMoney(4761033), '$4,761,033');
 });

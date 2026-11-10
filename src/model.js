@@ -75,6 +75,71 @@ export function fiscalThroughIndex(date) {
   return clampMonth(m);
 }
 
+// ISO date (YYYY-MM-DD) → FY27 month. October 2026 is 0 and September 2027 is 11.
+// Dates outside that year still resolve to the nearest end month and set outside.
+export function fiscalMonthFromIso(iso) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '').trim());
+  if (!match) return { index: null, outside: true, iso: '' };
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return { index: null, outside: true, iso: '' };
+  }
+  const raw = (year - 2026) * 12 + (month - 1) - 9;
+  return {
+    index: clampMonth(raw),
+    outside: raw < 0 || raw > 11,
+    iso: `${match[1]}-${match[2]}-${match[3]}`,
+  };
+}
+
+export function cumulativeThrough(values, index) {
+  const end = clampMonth(index);
+  const months = monthArray(values);
+  let total = 0;
+  for (let i = 0; i <= end; i += 1) total += months[i];
+  return total;
+}
+
+// Dollars still needed to reach 95% of plan. Already at or above 95% reports required 0.
+// A zero plan leaves the percent as N/A and treats 95% of zero as zero.
+export function obligationCallout(plan, obligations) {
+  const planned = num(plan);
+  const actual = num(obligations);
+  const percent = ratio(actual, planned);
+  const target = planned * 0.95;
+  const rawGap = target - actual;
+  const met = rawGap <= 0.005;
+  return {
+    plan: planned,
+    obligations: actual,
+    percent,
+    target,
+    required: met ? 0 : rawGap,
+    met,
+  };
+}
+
+export function calloutLines(plan, obligations, options = {}) {
+  const callout = obligationCallout(plan, obligations);
+  const narrow = !!options.narrow;
+  const line1 = `${formatMoney(callout.obligations)} (${callout.percent.text})`;
+  const line2 = callout.met
+    ? '95% target met'
+    : `${formatMoney(callout.required)} (${narrow ? 'to 95% target' : 'required to meet 95% obligation target'})`;
+  return { ...callout, line1, line2 };
+}
+
+// Tone for % obligated vs plan. Empty when the plan (denominator) is zero.
+export function planExecutionTone(percentValue) {
+  if (percentValue == null || !Number.isFinite(percentValue)) return '';
+  if (percentValue >= 0.95) return 'ok';
+  if (percentValue >= 0.5) return 'mid';
+  return 'low';
+}
+
 export function monthFigures(plan, obligations, index) {
   const i = clampMonth(index);
   const planned = monthArray(plan)[i];
@@ -290,6 +355,8 @@ function normalizeV2(raw, programs) {
   if (Object.prototype.hasOwnProperty.call(raw, 'dashboardIncluded') && Array.isArray(raw.dashboardIncluded)) {
     setDashboardIncluded(next, programs, raw.dashboardIncluded);
   }
+  const sof = normalizeSof(raw.sof);
+  if (sof) next.sof = sof;
   return next;
 }
 
@@ -493,6 +560,213 @@ export function legacyExclusion(state) {
     programsWithPlan,
     programsWithPbg,
   };
+}
+
+function obligationsWereSet(row) {
+  if (!row || typeof row !== 'object') return false;
+  if (row.obligationsSet === true) return true;
+  if (row.obligationsSet === false) return false;
+  return Object.prototype.hasOwnProperty.call(row, 'obligations');
+}
+
+function normalizeSofRow(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const out = {
+    obligations: num(row.obligations),
+    commitments: num(row.commitments),
+    comments: typeof row.comments === 'string' ? row.comments.slice(0, 500) : '',
+    obligationsSet: obligationsWereSet(row),
+  };
+  if (row.allotment != null && row.allotment !== '') out.allotment = num(row.allotment);
+  if (row.pbg != null && row.pbg !== '') out.pbg = num(row.pbg);
+  if (row.plan != null && row.plan !== '') out.plan = num(row.plan);
+  if (row.unmatched) out.unmatched = true;
+  if (typeof row.mdep === 'string') out.mdep = row.mdep.slice(0, 40);
+  if (typeof row.suffix === 'string') out.suffix = row.suffix.slice(0, 40);
+  if (typeof row.name === 'string') out.name = row.name.slice(0, 160);
+  if (typeof row.pm === 'string') out.pm = row.pm.slice(0, 40);
+  if (typeof row.sag === 'string') out.sag = row.sag.slice(0, 20);
+  if (typeof row.fund === 'string') out.fund = row.fund.slice(0, 12);
+  return out;
+}
+
+function normalizeSofRows(rows) {
+  const out = {};
+  if (!rows || typeof rows !== 'object' || Array.isArray(rows)) return out;
+  for (const [key, row] of Object.entries(rows)) {
+    const cleanKey = String(key).slice(0, 80);
+    if (!cleanKey) continue;
+    const next = normalizeSofRow(row);
+    if (next) out[cleanKey] = next;
+  }
+  return out;
+}
+
+function normalizeSofExtras(extras) {
+  if (!Array.isArray(extras)) return [];
+  const out = [];
+  for (const row of extras.slice(0, 80)) {
+    const next = normalizeSofRow(row);
+    if (!next) continue;
+    next.unmatched = true;
+    out.push(next);
+  }
+  return out;
+}
+
+function normalizeSofSnapshot(snap) {
+  if (!snap || typeof snap !== 'object' || Array.isArray(snap)) return null;
+  const out = {
+    rows: normalizeSofRows(snap.rows),
+    extras: normalizeSofExtras(snap.extras),
+  };
+  if (typeof snap.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(snap.asOf)) out.asOf = snap.asOf;
+  return out;
+}
+
+// Optional v2 field. Absent on older saves. Never required to read a phase plan.
+export function normalizeSof(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const snapshots = {};
+  if (raw.snapshots && typeof raw.snapshots === 'object' && !Array.isArray(raw.snapshots)) {
+    for (const [key, snap] of Object.entries(raw.snapshots)) {
+      const idx = Number(key);
+      if (!Number.isInteger(idx) || idx < 0 || idx > 11) continue;
+      const next = normalizeSofSnapshot(snap);
+      if (next) snapshots[String(idx)] = next;
+    }
+  }
+  const sof = {
+    rows: normalizeSofRows(raw.rows),
+    extras: normalizeSofExtras(raw.extras),
+    snapshots,
+  };
+  if (typeof raw.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.asOf)) sof.asOf = raw.asOf;
+  const has = sof.asOf || Object.keys(sof.rows).length || sof.extras.length || Object.keys(sof.snapshots).length;
+  return has ? sof : null;
+}
+
+function ensureSof(state) {
+  if (!state.sof || typeof state.sof !== 'object' || Array.isArray(state.sof)) {
+    state.sof = { rows: {}, extras: [], snapshots: {} };
+  }
+  if (!state.sof.rows || typeof state.sof.rows !== 'object' || Array.isArray(state.sof.rows)) state.sof.rows = {};
+  if (!Array.isArray(state.sof.extras)) state.sof.extras = [];
+  if (!state.sof.snapshots || typeof state.sof.snapshots !== 'object' || Array.isArray(state.sof.snapshots)) {
+    state.sof.snapshots = {};
+  }
+  return state.sof;
+}
+
+export function priorMonthsObligation(obligations, monthIndex) {
+  const end = clampMonth(monthIndex);
+  const months = monthArray(obligations);
+  let total = 0;
+  for (let i = 0; i < end; i += 1) total += months[i];
+  return total;
+}
+
+// Monthly figure for the as-of month. Prior months do not include that month,
+// so a later report for the same month replaces the figure instead of stacking.
+export function deriveMonthlyFromCumulative(cumulative, priorMonths) {
+  return num(cumulative) - num(priorMonths);
+}
+
+export function previewSofApply(programs, state, cumulativeByCode, monthIndex) {
+  const month = clampMonth(monthIndex);
+  const out = [];
+  const codes = cumulativeByCode && typeof cumulativeByCode === 'object' ? Object.keys(cumulativeByCode) : [];
+  for (const code of codes) {
+    const program = (programs || []).find(item => item.code === code);
+    if (!program) continue;
+    const cumulative = num(cumulativeByCode[code]);
+    const prior = priorMonthsObligation(state?.obl?.[code], month);
+    const derived = deriveMonthlyFromCumulative(cumulative, prior);
+    out.push({
+      code,
+      name: program.name,
+      cumulative,
+      prior,
+      derived,
+      deobligation: derived < -0.005,
+    });
+  }
+  return out;
+}
+
+export function rederiveObligationsFromSnapshots(state, programs) {
+  const snapshots = state?.sof?.snapshots || {};
+  const codes = new Set();
+  for (const snap of Object.values(snapshots)) {
+    for (const [code, row] of Object.entries(snap?.rows || {})) {
+      if (row?.obligationsSet === true && (programs || []).some(program => program.code === code)) codes.add(code);
+    }
+  }
+  for (const code of codes) {
+    if (!Array.isArray(state.obl[code])) state.obl[code] = emptyMonths();
+    let running = 0;
+    for (let month = 0; month < 12; month += 1) {
+      const row = snapshots[String(month)]?.rows?.[code];
+      if (row && row.obligationsSet === true) {
+        const derived = deriveMonthlyFromCumulative(row.obligations, running);
+        state.obl[code][month] = derived;
+        running += derived;
+      } else {
+        running += num(state.obl[code][month]);
+      }
+    }
+  }
+  return state;
+}
+
+export function replaceSofWorking(state, parsed) {
+  const sof = ensureSof(state);
+  sof.rows = normalizeSofRows(parsed?.rows);
+  sof.extras = normalizeSofExtras(parsed?.extras);
+  if (typeof parsed?.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.asOf)) sof.asOf = parsed.asOf;
+  return state;
+}
+
+// Stores the cumulative snapshot for the as-of month, then rewrites monthly
+// obligations from every stored snapshot. Later months that have a snapshot
+// are re-derived from the updated prior-month chain.
+export function applySofMonth(state, programs, spec) {
+  const month = clampMonth(spec?.monthIndex);
+  const sof = ensureSof(state);
+  const snapshot = {
+    rows: normalizeSofRows(spec?.rows),
+    extras: normalizeSofExtras(spec?.extras),
+  };
+  if (typeof spec?.asOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(spec.asOf)) snapshot.asOf = spec.asOf;
+  sof.snapshots[String(month)] = snapshot;
+  sof.rows = deepCopy(snapshot.rows);
+  sof.extras = deepCopy(snapshot.extras);
+  if (snapshot.asOf) sof.asOf = snapshot.asOf;
+  rederiveObligationsFromSnapshots(state, programs);
+  return state;
+}
+
+export function loadSofSnapshot(state, monthIndex) {
+  const snap = state?.sof?.snapshots?.[String(clampMonth(monthIndex))];
+  if (!snap) return false;
+  const sof = ensureSof(state);
+  sof.rows = deepCopy(snap.rows || {});
+  sof.extras = deepCopy(snap.extras || []);
+  if (snap.asOf) sof.asOf = snap.asOf;
+  return true;
+}
+
+export function listSofSnapshots(state) {
+  const snapshots = state?.sof?.snapshots || {};
+  return Object.keys(snapshots)
+    .map(key => Number(key))
+    .filter(month => Number.isInteger(month) && month >= 0 && month <= 11 && snapshots[String(month)])
+    .sort((a, b) => a - b)
+    .map(month => {
+      const snap = snapshots[String(month)];
+      const programs = Object.values(snap.rows || {}).filter(row => row && row.obligationsSet === true).length;
+      return { month, asOf: snap.asOf || '', programs };
+    });
 }
 
 function csvCell(value) {

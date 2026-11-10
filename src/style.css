@@ -31,7 +31,8 @@ td.q.hl,tr.roll td.q.hl,tr.cml td.q.hl{background:#f59e0b;color:#1c1917;font-wei
 td.hl.neg,td.q.hl.neg{color:var(--bad)}
 .neg{color:var(--bad)}.bad{color:var(--bad);font-weight:700}.good{color:var(--ok);font-weight:700}
 .totals{display:flex;gap:24px;flex-wrap:wrap;margin-top:12px;padding:12px 16px;background:var(--navy);color:#cbd5e1;border-radius:10px}.totals b{color:#fff;margin-left:6px}.totals .bad{color:#fca5a5}.totals .good{color:#6ee7b7}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}.grid2>*{min-width:0}.ch{position:relative;height:300px;min-width:0;max-width:100%;overflow:hidden}.cs{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--slate)}.cs b{color:var(--navy)}.cs small{display:block;font-weight:400}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}.grid2>*{min-width:0}.ch{position:relative;height:380px;min-width:0;max-width:100%;overflow:hidden}.cs{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--slate)}.cs b{color:var(--navy)}.cs small{display:block;font-weight:400}
+.cs b.need{color:#1d4ed8}.cs b.met{color:var(--ok)}
 .bar{display:inline-block;width:60px;height:6px;background:var(--line);border-radius:3px;margin-right:6px;vertical-align:middle}.bar i{display:block;height:100%;background:#1e3a8a;border-radius:3px}
 .narr{border-left:3px solid var(--acc);padding:4px 0 4px 12px;margin:12px 0}.narr h4{margin:0 0 6px}.narr label{display:block;font-size:12.5px;color:var(--slate);margin:6px 0}
 textarea{width:100%;min-height:52px;font:inherit;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:var(--yel);margin-top:4px}.empty{color:var(--slate)}
@@ -95,11 +96,41 @@ tr.onmonth th,tr.onmonth td{box-shadow:inset 0 0 0 999px rgba(30,58,138,.08)}
 .prov summary{cursor:pointer;font-weight:700;color:var(--navy)}
 .totals small{color:#cbd5e1;font-weight:400;margin-left:6px}
 noscript p{margin:0;padding:12px 28px;background:#fff7ed}
+.sof-card h3{margin-top:16px}
+.sof-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:0 0 12px}
+.sof-card button,.sof-card .btn{background:#fff;color:var(--navy);border:1px solid #94a3b8}
+.sof-card .btn{display:inline-flex;align-items:center;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700}
+.sof-preview{margin:8px 0 16px;padding:12px;border:1px solid #bfdbfe;border-radius:12px;background:#f8fafc}
+.sof-preview h3{margin-top:0}
+#sof-confirm{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:800}
+.sof-table{font-size:12px}
+.sof-table tbody th{vertical-align:top}
+.sof-table .sof-id{display:block}
+.sof-table tbody th small{display:block;max-width:16rem;white-space:normal;font-weight:500;line-height:1.25}
+.sof-table td.in input{width:108px}
+.sof-table td.sof-comment input{width:160px;text-align:left}
+.sof-wrap{max-height:70vh}
+tr.unmatched th,tr.unmatched td{background:#fff7ed}
+tr.sof-gap td{height:10px;background:#f8fafc;border-bottom:0}
+tr.deobl td,tr.deobl th{background:#fef2f2}
+.pct.low{color:var(--bad);font-weight:800}
+.pct.mid{color:#b45309;font-weight:800}
+.pct.ok{color:var(--ok);font-weight:800}
+.sof-legend .pct{font-weight:800}
+.sof-footer{margin-top:14px;padding:12px 14px;border:1px solid #c7d2fe;border-radius:12px;background:#eef2ff}
+.sof-target{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;padding:6px 0;border-top:1px solid #c7d2fe}
+.sof-target:first-of-type{border-top:0}
+.sof-target b{color:var(--navy);font-size:16px}
+.sof-target em{color:#7c2d12;font-style:normal;font-weight:700}
+.sof-snaps{list-style:none;margin:0;padding:0}
+.sof-snaps li{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
+.sof-warnings{margin:0 0 10px;padding-left:18px;color:#7c2d12}
+td.sof-span{background:#f8fafc}
 @media(max-width:600px){
   .grid2{grid-template-columns:1fr}
   .hdr,.toolbar,.kpis,main,.tabs,.disclaimer,.about,.mig,footer{padding-left:14px;padding-right:14px}
   .toolbar label,.toolbar .field,.grow{flex:1 1 100%;min-width:0}
-  .ch{height:240px}
+  .ch{height:300px}
   .appropriation{padding:14px}
   h1{font-size:18px}
   .save-state{text-align:left}
