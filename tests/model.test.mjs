@@ -4,7 +4,7 @@ import {
   LEGACY_STORAGE_KEY, STORAGE_KEY, applySofMonth, appropriation, blankState, calloutLines,
   clearActiveEntries, commitAmount, deriveMonthlyFromCumulative, fiscalMonthFromIso, fiscalThroughIndex,
   formatMoney, includedPrograms, legacyExclusion, loadState, migrateState, monthFigures, narrativeFlags,
-  obligationCallout, parseAmount, periodSum, previewSofApply, priorMonthsObligation, programView, ratio,
+  obligationCallout, parseAmount, periodSum, planExecutionTone, previewSofApply, priorMonthsObligation, programView, ratio,
   setDashboardIncluded, straightLineCumulative, straightLineMonthly, toCsv,
 } from '../src/model.js';
 
@@ -478,6 +478,31 @@ test('95% obligation callout matches the worked example and the edge cases', () 
   const filteredCum = calloutLines(filtered.cp[1], filtered.ce[1]);
   assert.equal(filteredCum.obligations, 800000 + 345122);
   assert.notEqual(filteredCum.line1, filteredCallout.line1);
+});
+
+test('plan percent colors use unrounded bands and flag over-execution', () => {
+  const tone = (percent) => planExecutionTone(percent / 100);
+  assert.equal(tone(89.9), 'low');
+  assert.equal(tone(90), 'mid');
+  assert.equal(tone(94.9), 'mid');
+  assert.equal(tone(95), 'ok');
+  assert.equal(tone(100), 'ok');
+  assert.equal(tone(105), 'ok');
+  assert.equal(tone(105.1), 'mid');
+  assert.equal(tone(110), 'mid');
+  assert.equal(tone(110.1), 'low');
+  assert.equal(planExecutionTone(null), '');
+  assert.equal(planExecutionTone(Number.NaN), '');
+  assert.equal(planExecutionTone(0), 'low');
+  // Display rounding must not move a value across a band.
+  assert.equal((0.8996 * 100).toFixed(1), '90.0');
+  assert.equal(planExecutionTone(0.8996), 'low');
+  assert.equal((0.9496 * 100).toFixed(1), '95.0');
+  assert.equal(planExecutionTone(0.9496), 'mid');
+  assert.equal((1.0504 * 100).toFixed(1), '105.0');
+  assert.equal(planExecutionTone(1.0504), 'mid');
+  assert.equal((1.1004 * 100).toFixed(1), '110.0');
+  assert.equal(planExecutionTone(1.1004), 'low');
 });
 
 test('cumulative SOF becomes the fiscal month and snapshots re-derive', () => {

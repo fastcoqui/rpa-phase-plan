@@ -818,7 +818,7 @@ function sofView() {
       <button type="button" id="sof-paste-load" class="ghost">Load pasted rows</button>
     </details>
     <div id="sof-preview-panel">${previewHtml}</div>
-    <p class="hint sof-legend"><span class="pct low">Under 50% of plan</span> · <span class="pct mid">50% up to 95%</span> · <span class="pct ok">95% or more</span> · N/A means the plan is zero. An unmatched row is not one of the 31 programs. It stays on this tab and is not written into monthly obligations.</p>
+    <p class="hint sof-legend"><span class="pct ok">Green: 95% to 105% of plan</span> · <span class="pct mid">Amber: 90% up to but under 95%, or over 105% up to 110%</span> · <span class="pct low">Red: under 90% (89% and below), or over 110% (111% and over)</span> · Over-execution is flagged as well as a shortfall. N/A means the plan is zero. An unmatched row is not one of the 31 programs. It stays on this tab and is not written into monthly obligations.</p>
     <div class="tw sof-wrap"><table class="sof-table"><thead><tr>
       <th scope="col">Program</th><th scope="col">PM</th><th scope="col">SAG</th><th scope="col">MDEP</th><th scope="col">Suffix</th><th scope="col">Description</th>
       <th scope="col">PBG</th><th scope="col">PLAN</th><th scope="col">ALLOTMENT</th><th scope="col">OBLIGATIONS</th><th scope="col">COMMITMENTS</th>

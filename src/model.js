@@ -132,11 +132,14 @@ export function calloutLines(plan, obligations, options = {}) {
   return { ...callout, line1, line2 };
 }
 
-// Tone for % obligated vs plan. Empty when the plan (denominator) is zero.
+// Tone for % obligated vs plan. `percentValue` is the unrounded ratio (0.95 means 95%).
+// Empty when the plan is zero. Over-execution is colored, not only a shortfall.
+// Green: 95% through 105% inclusive. Amber: 90% up to 95%, or over 105% through 110%.
+// Red: under 90%, or over 110%.
 export function planExecutionTone(percentValue) {
   if (percentValue == null || !Number.isFinite(percentValue)) return '';
-  if (percentValue >= 0.95) return 'ok';
-  if (percentValue >= 0.5) return 'mid';
+  if (percentValue >= 0.95 && percentValue <= 1.05) return 'ok';
+  if ((percentValue >= 0.9 && percentValue < 0.95) || (percentValue > 1.05 && percentValue <= 1.1)) return 'mid';
   return 'low';
 }
 
