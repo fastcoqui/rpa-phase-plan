@@ -122,25 +122,40 @@ export function obligationCallout(plan, obligations) {
   };
 }
 
+// One set of thresholds for % of plan. `percentValue` is the unrounded ratio (0.95 means 95%).
+// Green: 95% through 105% inclusive. Amber: 90% up to 95%, or over 105% through 110%.
+// Red: under 90%, or over 110%. Empty tone when the plan is zero.
+// kind selects the callout sentence: short (still under 95%), met, over105, over110, or na.
+export function executionBand(percentValue) {
+  if (percentValue == null || !Number.isFinite(percentValue)) return { tone: '', kind: 'na' };
+  if (percentValue >= 0.95 && percentValue <= 1.05) return { tone: 'ok', kind: 'met' };
+  if (percentValue >= 0.9 && percentValue < 0.95) return { tone: 'mid', kind: 'short' };
+  if (percentValue > 1.05 && percentValue <= 1.1) return { tone: 'mid', kind: 'over105' };
+  if (percentValue > 1.1) return { tone: 'low', kind: 'over110' };
+  return { tone: 'low', kind: 'short' };
+}
+
+export function planExecutionTone(percentValue) {
+  return executionBand(percentValue).tone;
+}
+
 export function calloutLines(plan, obligations, options = {}) {
   const callout = obligationCallout(plan, obligations);
   const narrow = !!options.narrow;
+  const band = executionBand(callout.percent.value);
   const line1 = `${formatMoney(callout.obligations)} (${callout.percent.text})`;
-  const line2 = callout.met
-    ? '95% target met'
-    : `${formatMoney(callout.required)} (${narrow ? 'to 95% target' : 'required to meet 95% obligation target'})`;
-  return { ...callout, line1, line2 };
-}
-
-// Tone for % obligated vs plan. `percentValue` is the unrounded ratio (0.95 means 95%).
-// Empty when the plan is zero. Over-execution is colored, not only a shortfall.
-// Green: 95% through 105% inclusive. Amber: 90% up to 95%, or over 105% through 110%.
-// Red: under 90%, or over 110%.
-export function planExecutionTone(percentValue) {
-  if (percentValue == null || !Number.isFinite(percentValue)) return '';
-  if (percentValue >= 0.95 && percentValue <= 1.05) return 'ok';
-  if ((percentValue >= 0.9 && percentValue < 0.95) || (percentValue > 1.05 && percentValue <= 1.1)) return 'mid';
-  return 'low';
+  const overAmount = callout.obligations - callout.plan;
+  let line2 = 'N/A';
+  if (band.kind === 'short') {
+    line2 = `${formatMoney(callout.required)} (${narrow ? 'to 95% target' : 'required to meet 95% obligation target'})`;
+  } else if (band.kind === 'met') {
+    line2 = '95% target met';
+  } else if (band.kind === 'over105') {
+    line2 = `Over plan by ${formatMoney(overAmount)} (>105%)`;
+  } else if (band.kind === 'over110') {
+    line2 = `Over-executed by ${formatMoney(overAmount)} (${narrow ? '>110%' : '>110% of plan'})`;
+  }
+  return { ...callout, ...band, line1, line2, overAmount };
 }
 
 export function monthFigures(plan, obligations, index) {
